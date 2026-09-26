@@ -107,7 +107,15 @@ tbody tr:hover{background:var(--surface2)}
 .badge{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700}
 .badge.ok{background:rgba(31,122,77,.14); color:var(--green)}
 .badge.warn{background:rgba(181,117,10,.16); color:var(--amber)}
-.rowactions{display:flex; gap:6px}
+.badge.leave{background:rgba(178,59,59,.14); color:var(--red)}
+.badge.pending{background:rgba(15,110,92,.14); color:var(--accent)}
+.rowactions{display:flex; gap:6px; flex-wrap:wrap}
+.type-toggle{display:flex; gap:6px}
+.type-toggle label{display:flex; align-items:center; gap:5px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:var(--surface2); font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-dim)}
+.type-toggle input{width:auto; margin:0}
+.type-toggle label.active{border-color:var(--accent); color:var(--ink); background:rgba(15,110,92,.08)}
+.recstats{padding:10px 16px; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--ink-dim)}
+.recstats strong{color:var(--ink)}
 .empty{padding:26px; text-align:center; color:var(--ink-dim); font-size:13px}
 .search{max-width:260px}
 .filters{display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border)}
@@ -193,7 +201,7 @@ tbody tr:hover{background:var(--surface2)}
           <div class="table-wrap"><table>
             <thead><tr>
               <th>#</th><th>Enroll No</th><th>Name</th><th>Course</th>
-              <th>Week Hrs</th><th>Month Hrs</th><th>Total Hrs</th><th>Required</th><th>Remaining</th><th>Status</th>
+              <th>Week Hrs</th><th>Month Hrs</th><th>Total Hrs</th><th>Required</th><th>Remaining</th><th>Completion %</th><th>Status</th>
             </tr></thead>
             <tbody id="dashBody"></tbody>
           </table></div>
@@ -232,14 +240,21 @@ tbody tr:hover{background:var(--surface2)}
     <!-- DAILY LOG -->
     <section class="panel" id="tab-log">
       <div class="section">
-        <div class="section-head"><h2 id="logFormTitle">Add check-in / check-out</h2><span class="hint">Hours worked calculate automatically</span></div>
+        <div class="section-head"><h2 id="logFormTitle">Add check-in / check-out</h2><span class="hint">Check in now, check out later — or mark the day as Leave</span></div>
         <div class="section-body">
           <form class="grid" id="logForm">
             <input type="hidden" id="logId">
             <div class="field"><label>Student</label><select id="logEnroll" required></select></div>
             <div class="field"><label>Date</label><input id="logDate" type="date" required></div>
-            <div class="field"><label>Time In</label><input id="logIn" type="time" required></div>
-            <div class="field"><label>Time Out</label><input id="logOut" type="time" required></div>
+            <div class="field">
+              <label>Type</label>
+              <div class="type-toggle" id="logTypeToggle">
+                <label class="active" data-type="present"><input type="radio" name="logType" value="present" checked>Present</label>
+                <label data-type="leave"><input type="radio" name="logType" value="leave">Leave</label>
+              </div>
+            </div>
+            <div class="field" id="logInWrap"><label>Time In</label><input id="logIn" type="time"></div>
+            <div class="field" id="logOutWrap"><label>Time Out (optional)</label><input id="logOut" type="time"></div>
             <div class="field" style="flex-direction:row; gap:8px">
               <button type="submit" class="btn primary">Save entry</button>
               <button type="button" class="btn" id="logCancel" style="display:none">Cancel</button>
@@ -250,7 +265,7 @@ tbody tr:hover{background:var(--surface2)}
       <div class="section">
         <div class="section-head"><h2>Today's & recent entries</h2><span class="hint" id="logCount"></span></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
           <tbody id="logBody"></tbody>
         </table></div>
       </div>
@@ -266,9 +281,10 @@ tbody tr:hover{background:var(--surface2)}
           <input type="date" id="recTo" title="To date">
           <button class="btn small" id="recReset">Reset filters</button>
         </div>
+        <div class="recstats" id="recStats"></div>
         <div class="section-body">
           <div class="table-wrap"><table>
-            <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Course</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
+            <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
             <tbody id="recBody"></tbody>
           </table></div>
         </div>
@@ -351,11 +367,13 @@ function seedLocal(){
   const today = new Date();
   const d = (off)=>{ const x=new Date(today); x.setDate(x.getDate()-off); return x.toISOString().slice(0,10); };
   state.logs = [
-    {id:uid(), enroll:"EN-1001", date:d(0), tin:"09:00", tout:"13:30"},
-    {id:uid(), enroll:"EN-1001", date:d(2), tin:"09:15", tout:"13:00"},
-    {id:uid(), enroll:"EN-1002", date:d(1), tin:"10:00", tout:"14:00"},
-    {id:uid(), enroll:"EN-1003", date:d(0), tin:"09:00", tout:"12:45"},
-    {id:uid(), enroll:"EN-1003", date:d(20), tin:"09:00", tout:"13:00"},
+    {id:uid(), enroll:"EN-1001", date:d(0), tin:"09:00", tout:"13:30", status:"present"},
+    {id:uid(), enroll:"EN-1001", date:d(2), tin:"09:15", tout:"13:00", status:"present"},
+    {id:uid(), enroll:"EN-1002", date:d(1), tin:"10:00", tout:"14:00", status:"present"},
+    {id:uid(), enroll:"EN-1002", date:d(3), tin:"", tout:"", status:"leave"},
+    {id:uid(), enroll:"EN-1003", date:d(0), tin:"09:00", tout:"12:45", status:"present"},
+    {id:uid(), enroll:"EN-1003", date:d(1), tin:"09:05", tout:"", status:"present"},
+    {id:uid(), enroll:"EN-1003", date:d(20), tin:"09:00", tout:"13:00", status:"present"},
   ];
   saveLocal();
 }
@@ -388,7 +406,7 @@ async function fetchAllFromSupabase(){
   state.students = stu.map(r=>({ id:r.id, enroll:r.enroll, name:r.name, course:r.course, hours:r.hours, join:r.join_date||"" }));
   const { data: logs, error: e2 } = await sb.from("logs").select("*").order("date",{ascending:false});
   if(e2) throw e2;
-  state.logs = logs.map(r=>({ id:r.id, enroll:r.enroll, date:r.date, tin:(r.time_in||"").slice(0,5), tout:(r.time_out||"").slice(0,5) }));
+  state.logs = logs.map(r=>({ id:r.id, enroll:r.enroll, date:r.date, tin:(r.time_in||"").slice(0,5), tout:(r.time_out||"").slice(0,5), status:r.status||"present" }));
   renderAll();
 }
 
@@ -399,9 +417,10 @@ async function initApp(){
       usingSb = true;
       await fetchUsersFromSupabase();
     }catch(e){
-      console.error("Supabase init failed", e);
+      const msg = (e && (e.message || e.error_description || e.details)) || JSON.stringify(e);
+      console.error("Supabase init failed:", msg, e);
       usingSb = false;
-      toast("Supabase connection failed — using offline mode");
+      toast("Supabase connection failed: " + msg);
     }
   }
   if(!usingSb) loadUsersLocal();
@@ -420,8 +439,14 @@ async function enterApp(){
   document.getElementById("saveModeNote").textContent = usingSb
     ? "Saved permanently — synced via Supabase."
     : "Saved in this browser only — add Supabase keys in the code to sync online.";
-  if(usingSb){ await fetchAllFromSupabase(); }
-  else { loadLocal(); renderAll(); }
+  if(usingSb){
+    try{ await fetchAllFromSupabase(); }
+    catch(e){
+      const msg = (e && (e.message || e.error_description || e.details)) || JSON.stringify(e);
+      console.error("Loading data from Supabase failed:", msg, e);
+      toast("Could not load data from Supabase: " + msg);
+    }
+  } else { loadLocal(); renderAll(); }
   renderUsers();
 }
 
@@ -452,7 +477,7 @@ async function renameStudentEnroll(oldEnroll, newEnroll){
 }
 async function addOrUpdateLog(id, data){
   if(usingSb){
-    const row = { enroll: data.enroll, date: data.date, time_in: data.tin, time_out: data.tout };
+    const row = { enroll: data.enroll, date: data.date, time_in: data.tin || null, time_out: data.tout || null, status: data.status || "present" };
     if(id){ const { error } = await sb.from("logs").update(row).eq("id", id); if(error) throw error; }
     else { const { error } = await sb.from("logs").insert(row); if(error) throw error; }
     await fetchAllFromSupabase();
@@ -487,9 +512,19 @@ async function removeUser(id){
 }
 
 function hoursOf(log){
+  if(log.status === "leave" || !log.tin || !log.tout) return 0;
   const [ih,im]=log.tin.split(":").map(Number), [oh,om]=log.tout.split(":").map(Number);
   let h = (oh+om/60) - (ih+im/60);
   return h>0 ? h : 0;
+}
+function pctFmt(p){ return (p===null || p===undefined || isNaN(p)) ? "—" : (Math.round(p*100)/100)+"%"; }
+// Completion % is total hours logged so far, out of the student's required hours —
+// e.g. 10 hrs done out of 120 required = 8.33%. Not affected by daily present/leave counts.
+function completionStats(s){
+  const st = studentStats(s.enroll);
+  if(!s.hours){ return { total: st.total, required: s.hours, pct: null }; }
+  const pct = (st.total / s.hours) * 100;
+  return { total: st.total, required: s.hours, pct };
 }
 function weekBounds(ref){
   const d = new Date(ref); const day = (d.getDay()+6)%7; // 0=Mon
@@ -529,15 +564,18 @@ function renderDashboard(){
   const rows = state.students
     .filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
   body.innerHTML = "";
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="10" class="empty">No students yet. Add one in the Students tab.</td></tr>`; }
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="11" class="empty">No students yet. Add one in the Students tab.</td></tr>`; }
   rows.forEach((s,i)=>{
     const st = studentStats(s.enroll);
     const remaining = s.hours - st.total;
+    const comp = completionStats(s);
     const badge = remaining<=0 ? `<span class="badge ok">Complete</span>` : `<span class="badge warn">${fmt(remaining)} left</span>`;
+    const compClass = comp.pct===null ? "" : comp.pct>=100 ? "ok" : comp.pct>=50 ? "warn" : "leave";
+    const compCell = comp.pct===null ? "—" : `<span class="badge ${compClass}">${pctFmt(comp.pct)}</span>`;
     body.insertAdjacentHTML("beforeend", `<tr>
       <td>${i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
       <td class="mono">${fmt(st.week)}</td><td class="mono">${fmt(st.month)}</td><td class="mono">${fmt(st.total)}</td>
-      <td class="mono">${fmt(s.hours)}</td><td class="mono">${fmt(remaining)}</td><td>${badge}</td>
+      <td class="mono">${fmt(s.hours)}</td><td class="mono">${fmt(remaining)}</td><td>${compCell}</td><td>${badge}</td>
     </tr>`);
   });
 
@@ -546,10 +584,13 @@ function renderDashboard(){
   const totalHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).total,0);
   const weekHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).week,0);
   const completed = state.students.filter(s=>studentStats(s.enroll).total >= s.hours).length;
+  const compPcts = state.students.map(s=>completionStats(s).pct).filter(p=>p!==null);
+  const avgCompletion = compPcts.length ? (compPcts.reduce((a,b)=>a+b,0)/compPcts.length) : null;
   document.getElementById("statCards").innerHTML = `
     <div class="card"><div class="k">Students</div><div class="v">${totalStudents}</div></div>
     <div class="card"><div class="k">This week — all students</div><div class="v">${fmt(weekHoursAll)} <span>hrs</span></div></div>
     <div class="card"><div class="k">Total logged — all time</div><div class="v">${fmt(totalHoursAll)} <span>hrs</span></div></div>
+    <div class="card"><div class="k">Avg completion</div><div class="v">${pctFmt(avgCompletion)}</div></div>
     <div class="card"><div class="k">Courses completed</div><div class="v">${completed} <span>/ ${totalStudents}</span></div></div>
   `;
 }
@@ -591,12 +632,19 @@ function renderLogs(){
   const rows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date)).slice(0,60);
   body.innerHTML = "";
   document.getElementById("logCount").textContent = `${state.logs.length} total entries`;
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No entries yet.</td></tr>`; return; }
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="8" class="empty">No entries yet.</td></tr>`; return; }
   rows.forEach(l=>{
+    const isLeave = l.status === "leave";
+    const statusBadge = isLeave ? `<span class="badge leave">Leave</span>`
+      : l.tout ? `<span class="badge ok">Present</span>`
+      : `<span class="badge pending">Checked In</span>`;
+    const checkoutBtn = (!isLeave && l.tin && !l.tout) ? `<button class="btn small primary" data-checkout="${l.id}">Check Out Now</button>` : "";
     body.insertAdjacentHTML("beforeend", `<tr>
       <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td>
-      <td>${l.tin}</td><td>${l.tout}</td><td class="mono">${fmt(hoursOf(l))}</td>
+      <td>${statusBadge}</td>
+      <td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td>
       <td class="rowactions">
+        ${checkoutBtn}
         <button class="btn small" data-edit="${l.id}">Edit</button>
         <button class="btn small danger" data-del="${l.id}">Delete</button>
       </td>
@@ -604,6 +652,16 @@ function renderLogs(){
   });
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editLog(b.dataset.edit));
   body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delLog(b.dataset.del));
+  body.querySelectorAll("[data-checkout]").forEach(b=>b.onclick=()=>quickCheckOut(b.dataset.checkout));
+}
+async function quickCheckOut(id){
+  const l = state.logs.find(l=>l.id===id); if(!l) return;
+  const tout = new Date().toTimeString().slice(0,5);
+  if(tout <= l.tin){ toast("Current time is before check-in — edit the entry manually"); return; }
+  try{
+    await addOrUpdateLog(id, { enroll:l.enroll, date:l.date, tin:l.tin, tout, status:"present" });
+    toast("Checked out at " + tout);
+  }catch(err){ console.error(err); toast("Could not check out"); }
 }
 
 function renderRecords(){
@@ -615,12 +673,37 @@ function renderRecords(){
   if(enroll) rows = rows.filter(l=>l.enroll===enroll);
   if(from) rows = rows.filter(l=>l.date >= from);
   if(to) rows = rows.filter(l=>l.date <= to);
+
+  // completion % — total hours logged vs required hours (overall, not limited by the date filters above)
+  let statsHtml;
+  if(enroll){
+    const s = state.students.find(s=>s.enroll===enroll);
+    if(s){
+      const c = completionStats(s);
+      statsHtml = c.pct===null
+        ? `${esc(s.name)} has no required hours set.`
+        : `${esc(s.name)} has completed <strong>${pctFmt(c.pct)}</strong> of required hours (${fmt(c.total)} / ${fmt(c.required)} hrs).`;
+    } else { statsHtml = ""; }
+  } else {
+    const pcts = state.students.map(s=>completionStats(s).pct).filter(p=>p!==null);
+    const avg = pcts.length ? (pcts.reduce((a,b)=>a+b,0)/pcts.length) : null;
+    statsHtml = avg===null
+      ? "No students with required hours set yet."
+      : `Average completion across all students: <strong>${pctFmt(avg)}</strong> of required hours.`;
+  }
+  document.getElementById("recStats").innerHTML = statsHtml;
+
   body.innerHTML = "";
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No records match these filters.</td></tr>`; return; }
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="8" class="empty">No records match these filters.</td></tr>`; return; }
   rows.forEach(l=>{
+    const isLeave = l.status === "leave";
+    const statusBadge = isLeave ? `<span class="badge leave">Leave</span>`
+      : l.tout ? `<span class="badge ok">Present</span>`
+      : `<span class="badge pending">Checked In</span>`;
     body.insertAdjacentHTML("beforeend", `<tr>
       <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td><td>${esc(courseFor(l.enroll))}</td>
-      <td>${l.tin}</td><td>${l.tout}</td><td class="mono">${fmt(hoursOf(l))}</td>
+      <td>${statusBadge}</td>
+      <td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td>
     </tr>`);
   });
 }
@@ -709,19 +792,41 @@ document.getElementById("stuCancel").onclick = resetStuForm;
 
 // ---------- logs CRUD ----------
 const logForm = document.getElementById("logForm");
+function getLogType(){
+  const checked = logForm.querySelector('input[name="logType"]:checked');
+  return checked ? checked.value : "present";
+}
+function updateLogTypeUI(){
+  const type = getLogType();
+  const isLeave = type === "leave";
+  document.getElementById("logInWrap").style.display = isLeave ? "none" : "";
+  document.getElementById("logOutWrap").style.display = isLeave ? "none" : "";
+  document.getElementById("logIn").required = !isLeave;
+  document.querySelectorAll("#logTypeToggle label").forEach(l=>l.classList.toggle("active", l.dataset.type===type));
+}
+logForm.querySelectorAll('input[name="logType"]').forEach(r=>r.addEventListener("change", updateLogTypeUI));
+updateLogTypeUI();
+
 logForm.addEventListener("submit", async e=>{
   e.preventDefault();
   const enroll = document.getElementById("logEnroll").value;
   if(!enroll){ toast("Add a student first"); return; }
-  const tin = document.getElementById("logIn").value, tout = document.getElementById("logOut").value;
-  if(tout <= tin){ toast("Time Out must be after Time In"); return; }
+  const type = getLogType();
   const id = document.getElementById("logId").value;
-  const data = { enroll, date: document.getElementById("logDate").value, tin, tout };
+  let data;
+  if(type === "leave"){
+    data = { enroll, date: document.getElementById("logDate").value, tin:"", tout:"", status:"leave" };
+  } else {
+    const tin = document.getElementById("logIn").value, tout = document.getElementById("logOut").value;
+    if(!tin){ toast("Time In is required"); return; }
+    if(tout && tout <= tin){ toast("Time Out must be after Time In"); return; }
+    data = { enroll, date: document.getElementById("logDate").value, tin, tout, status:"present" };
+  }
   const submitBtn = logForm.querySelector("button[type=submit]");
   submitBtn.disabled = true;
   try{
     await addOrUpdateLog(id || null, data);
-    toast(id ? "Entry updated" : "Entry added");
+    toast(id ? "Entry updated" : (type==="leave" ? "Marked as leave" : (data.tout ? "Entry added" : "Checked in — check out any time later")));
     resetLogForm();
   }catch(err){ console.error(err); toast("Could not save entry"); }
   finally{ submitBtn.disabled = false; }
@@ -731,8 +836,12 @@ function editLog(id){
   document.getElementById("logId").value = l.id;
   document.getElementById("logEnroll").value = l.enroll;
   document.getElementById("logDate").value = l.date;
-  document.getElementById("logIn").value = l.tin;
-  document.getElementById("logOut").value = l.tout;
+  document.getElementById("logIn").value = l.tin||"";
+  document.getElementById("logOut").value = l.tout||"";
+  const type = l.status === "leave" ? "leave" : "present";
+  const radio = logForm.querySelector(`input[name="logType"][value="${type}"]`);
+  if(radio) radio.checked = true;
+  updateLogTypeUI();
   document.getElementById("logFormTitle").textContent = "Edit entry";
   document.getElementById("logCancel").style.display = "inline-flex";
   switchTab("log");
@@ -744,6 +853,9 @@ async function delLog(id){
 function resetLogForm(){
   logForm.reset(); document.getElementById("logId").value = "";
   document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
+  const presentRadio = logForm.querySelector('input[name="logType"][value="present"]');
+  if(presentRadio) presentRadio.checked = true;
+  updateLogTypeUI();
   document.getElementById("logFormTitle").textContent = "Add check-in / check-out";
   document.getElementById("logCancel").style.display = "none";
 }
@@ -855,14 +967,17 @@ document.getElementById("exportBtn").addEventListener("click", async ()=>{
 
     const logRows = [...state.logs].sort((a,b)=>a.date.localeCompare(b.date)).map(l=>({
       "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
-      "Date": l.date, "Time In": l.tin, "Time Out": l.tout, "Hours Worked": Number(fmt(hoursOf(l))) }));
+      "Date": l.date, "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
+      "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logRows), "Daily Log");
 
     const dashRows = state.students.map((s,i)=>{
       const st = studentStats(s.enroll);
+      const comp = completionStats(s);
       return { "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
         "Week Hours": Number(fmt(st.week)), "Month Hours": Number(fmt(st.month)), "Total Hours": Number(fmt(st.total)),
-        "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)) };
+        "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)),
+        "Completion %": comp.pct===null ? "" : Math.round(comp.pct*100)/100 };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashRows), "Dashboard");
 
