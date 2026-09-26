@@ -333,6 +333,9 @@ function toast(msg){
   t.textContent = msg; t.classList.add("show");
   clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
 }
+function errMsg(e){
+  return (e && (e.message || e.error_description || e.details || e.hint)) || (typeof e === "string" ? e : JSON.stringify(e)) || "Unknown error";
+}
 
 // ====== SUPABASE CONFIG — paste your project's values here, then re-upload this file ======
 const SUPABASE_URL = "https://tfszareafqwjnzksgwea.supabase.co";
@@ -661,7 +664,7 @@ async function quickCheckOut(id){
   try{
     await addOrUpdateLog(id, { enroll:l.enroll, date:l.date, tin:l.tin, tout, status:"present" });
     toast("Checked out at " + tout);
-  }catch(err){ console.error(err); toast("Could not check out"); }
+  }catch(err){ console.error(err); toast("Could not check out: " + errMsg(err)); }
 }
 
 function renderRecords(){
@@ -763,7 +766,7 @@ stuForm.addEventListener("submit", async e=>{
       toast("Student added");
     }
     resetStuForm();
-  }catch(err){ console.error(err); toast("Could not save student"); }
+  }catch(err){ console.error(err); toast("Could not save student: " + errMsg(err)); }
   finally{ submitBtn.disabled = false; }
 });
 function editStudent(id){
@@ -781,7 +784,7 @@ function editStudent(id){
 async function delStudent(id){
   const s = state.students.find(s=>s.id===id); if(!s) return;
   if(!confirm(`Delete ${s.name}? Their logged entries will stay but show as removed.`)) return;
-  try{ await removeStudent(id); }catch(err){ console.error(err); toast("Could not delete"); }
+  try{ await removeStudent(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
 }
 function resetStuForm(){
   stuForm.reset(); document.getElementById("stuId").value = "";
@@ -828,7 +831,7 @@ logForm.addEventListener("submit", async e=>{
     await addOrUpdateLog(id || null, data);
     toast(id ? "Entry updated" : (type==="leave" ? "Marked as leave" : (data.tout ? "Entry added" : "Checked in — check out any time later")));
     resetLogForm();
-  }catch(err){ console.error(err); toast("Could not save entry"); }
+  }catch(err){ console.error(err); toast("Could not save entry: " + errMsg(err)); }
   finally{ submitBtn.disabled = false; }
 });
 function editLog(id){
@@ -848,7 +851,7 @@ function editLog(id){
 }
 async function delLog(id){
   if(!confirm("Delete this log entry?")) return;
-  try{ await removeLog(id); }catch(err){ console.error(err); toast("Could not delete"); }
+  try{ await removeLog(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
 }
 function resetLogForm(){
   logForm.reset(); document.getElementById("logId").value = "";
@@ -876,7 +879,7 @@ userForm.addEventListener("submit", async e=>{
     await addOrUpdateUser(id || null, { username, password });
     toast(id ? "User updated" : "User added");
     resetUserForm();
-  }catch(err){ console.error(err); toast("Could not save user"); }
+  }catch(err){ console.error(err); toast("Could not save user: " + errMsg(err)); }
   finally{ submitBtn.disabled = false; }
 });
 function editUser(id){
@@ -889,7 +892,7 @@ function editUser(id){
 }
 async function delUser(id){
   if(!confirm("Delete this login user?")) return;
-  try{ await removeUser(id); }catch(err){ console.error(err); toast("Could not delete"); }
+  try{ await removeUser(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
 }
 function resetUserForm(){
   userForm.reset(); document.getElementById("userId").value = "";
