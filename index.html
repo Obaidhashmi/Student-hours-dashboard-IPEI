@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Student Hours Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --surface2:#eef1f5; --border:#dde3ea;
+  --ink:#12203a; --ink-dim:#5b6b82; --accent:#0f6e5c; --accent-ink:#ffffff;
+  --amber:#b5750a; --red:#b23b3b; --green:#1f7a4d;
+  --shadow:0 1px 2px rgba(18,32,58,.06),0 4px 14px rgba(18,32,58,.06);
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1420; --surface:#151d2c; --surface2:#1b2536; --border:#2a3547;
+    --ink:#e8edf5; --ink-dim:#93a1b8; --accent:#2fae90; --accent-ink:#06140f;
+    --amber:#e0a439; --red:#e2695f; --green:#4fbf85;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1420; --surface:#151d2c; --surface2:#1b2536; --border:#2a3547;
+  --ink:#e8edf5; --ink-dim:#93a1b8; --accent:#2fae90; --accent-ink:#06140f;
+  --amber:#e0a439; --red:#e2695f; --green:#4fbf85;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px; line-height:1.45;
+}
+.app{display:block; min-height:100vh}
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.brand-name{font-weight:700; font-size:14.5px}
+.brand-sub{font-size:11.5px; color:var(--ink-dim)}
+
+.tabbar{
+  display:flex; gap:4px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:5px;
+  margin-bottom:20px; position:sticky; top:calc(8px + env(safe-area-inset-top,0px)); z-index:20;
+  box-shadow:var(--shadow);
+}
+.navbtn{
+  display:flex; align-items:center; gap:7px; white-space:nowrap; padding:9px 14px; border-radius:8px;
+  background:transparent; border:none; color:var(--ink-dim); font-size:13.5px; font-weight:700; cursor:pointer; flex-shrink:0;
+}
+.navbtn:hover{background:var(--surface2); color:var(--ink)}
+.navbtn.active{background:var(--accent); color:var(--accent-ink)}
+.navbtn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}
+
+.main{padding:16px 18px 60px; padding-top:calc(16px + env(safe-area-inset-top,0px)); max-width:1180px; margin:0 auto}
+.topbar{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:20px; flex-wrap:wrap}
+.topbar h1{font-size:21px; margin:0 0 3px; letter-spacing:-.01em}
+.topbar p{margin:0; color:var(--ink-dim); font-size:13px}
+.actions{display:flex; gap:8px; flex-wrap:wrap}
+button{font-family:inherit; cursor:pointer}
+.btn{
+  border:1px solid var(--border); background:var(--surface); color:var(--ink); padding:8px 14px;
+  border-radius:8px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--red)}
+.btn.small{padding:5px 9px; font-size:12px}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; margin-bottom:20px}
+.card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow)}
+.card .k{font-size:11.5px; color:var(--ink-dim); font-weight:600; margin-bottom:6px}
+.card .v{font-size:23px; font-weight:700; letter-spacing:-.01em}
+.card .v span{font-size:12px; color:var(--ink-dim); font-weight:600}
+
+.panel{display:none}
+.panel.active{display:block}
+.section{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap}
+.section-head h2{font-size:15px; margin:0}
+.section-head .hint{font-size:12px; color:var(--ink-dim)}
+.section-body{padding:16px}
+
+form.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:end}
+.field{display:flex; flex-direction:column; gap:5px; min-width:0}
+.field label{font-size:11.5px; font-weight:600; color:var(--ink-dim)}
+input,select{
+  background:var(--surface2); border:1px solid var(--border); color:var(--ink); border-radius:7px;
+  padding:8px 9px; font-size:13px; font-family:inherit; width:100%;
+}
+input:focus,select:focus{outline:2px solid var(--accent); outline-offset:1px}
+
+.table-wrap{overflow-x:auto; border-radius:8px; border:1px solid var(--border)}
+table{width:100%; border-collapse:collapse; min-width:640px; font-size:13px}
+th{
+  background:var(--surface2); text-align:left; padding:9px 10px; font-size:11px; text-transform:none;
+  color:var(--ink-dim); font-weight:700; white-space:nowrap; border-bottom:1px solid var(--border);
+}
+td{padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+.mono{font-variant-numeric:tabular-nums}
+.badge{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700}
+.badge.ok{background:rgba(31,122,77,.14); color:var(--green)}
+.badge.warn{background:rgba(181,117,10,.16); color:var(--amber)}
+.rowactions{display:flex; gap:6px}
+.empty{padding:26px; text-align:center; color:var(--ink-dim); font-size:13px}
+.search{max-width:260px}
+.filters{display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border)}
+.toast{
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--ink); color:var(--bg);
+  padding:9px 16px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.2s;
+  z-index:50; max-width:90vw; text-align:center;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+@media (max-width:600px){
+  .cards{grid-template-columns:repeat(2,1fr)}
+}
+.login-screen{
+  position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+  padding:20px; z-index:100;
+}
+.login-card{
+  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:28px 26px;
+  width:100%; max-width:340px; box-shadow:var(--shadow); text-align:center;
+}
+.login-card .brand-mark{width:44px;height:44px;border-radius:11px;margin:0 auto 12px;font-size:18px}
+.login-card h1{font-size:18px; margin:0 0 4px}
+.login-card p{font-size:12.5px; color:var(--ink-dim); margin:0 0 18px}
+.login-card .field{text-align:left; margin-bottom:10px}
+.login-card .btn.primary{width:100%; justify-content:center; margin-top:6px}
+.login-error{color:var(--red); font-size:12.5px; min-height:16px; margin-top:8px}
+.pw-mask{font-family:monospace; letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="brand-mark">SH</div>
+    <h1>Hours Dashboard</h1>
+    <p>Sign in to continue</p>
+    <form id="loginForm">
+      <div class="field"><label>Username</label><input id="loginUser" autocomplete="username" required></div>
+      <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+      <button type="submit" class="btn primary">Sign in</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+  </div>
+</div>
+<div class="app" id="appRoot" style="display:none">
+  <main class="main">
+    <div class="brand">
+      <div class="brand-mark">SH</div>
+      <div>
+        <div class="brand-name">Hours Dashboard</div>
+        <div class="brand-sub" id="saveModeNote">Connecting…</div>
+      </div>
+    </div>
+    <nav class="tabbar" id="nav">
+      <button class="navbtn active" data-tab="dashboard"><span class="dot"></span>Dashboard</button>
+      <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
+      <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
+      <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
+      <button class="navbtn" data-tab="users"><span class="dot"></span>Users</button>
+    </nav>
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSub">Week, month and total hours for every student</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="addStudentBtn">➕ Add Student</button>
+        <button class="btn" id="addLogBtn">🕒 Student In/Out</button>
+        <button class="btn" id="themeBtn">🌓 Theme</button>
+        <button class="btn primary" id="exportBtn">⬇ Export Excel</button>
+        <button class="btn danger" id="logoutBtn">🚪 Logout</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section class="panel active" id="tab-dashboard">
+      <div class="cards" id="statCards"></div>
+      <div class="section">
+        <div class="section-head">
+          <h2>All students</h2>
+          <input class="search" id="dashSearch" placeholder="Search name, enroll no, course...">
+        </div>
+        <div class="section-body">
+          <div class="table-wrap"><table>
+            <thead><tr>
+              <th>#</th><th>Enroll No</th><th>Name</th><th>Course</th>
+              <th>Week Hrs</th><th>Month Hrs</th><th>Total Hrs</th><th>Required</th><th>Remaining</th><th>Status</th>
+            </tr></thead>
+            <tbody id="dashBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENTS -->
+    <section class="panel" id="tab-students">
+      <div class="section">
+        <div class="section-head"><h2 id="stuFormTitle">Add student</h2><span class="hint">Serial No is automatic</span></div>
+        <div class="section-body">
+          <form class="grid" id="stuForm">
+            <input type="hidden" id="stuId">
+            <div class="field"><label>Enroll No</label><input id="stuEnroll" required placeholder="EN-1001"></div>
+            <div class="field"><label>Student Name</label><input id="stuName" required placeholder="Full name"></div>
+            <div class="field"><label>Course Name</label><input id="stuCourse" required placeholder="e.g. Web Development"></div>
+            <div class="field"><label>Required Hours</label><input id="stuHours" type="number" min="0" step="0.5" required placeholder="120"></div>
+            <div class="field"><label>Join Date</label><input id="stuJoin" type="date"></div>
+            <div class="field" style="flex-direction:row; gap:8px">
+              <button type="submit" class="btn primary">Save</button>
+              <button type="button" class="btn" id="stuCancel" style="display:none">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>Student list</h2><input class="search" id="stuSearch" placeholder="Search..."></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Required Hrs</th><th>Join Date</th><th>Actions</th></tr></thead>
+          <tbody id="stuBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- DAILY LOG -->
+    <section class="panel" id="tab-log">
+      <div class="section">
+        <div class="section-head"><h2 id="logFormTitle">Add check-in / check-out</h2><span class="hint">Hours worked calculate automatically</span></div>
+        <div class="section-body">
+          <form class="grid" id="logForm">
+            <input type="hidden" id="logId">
+            <div class="field"><label>Student</label><select id="logEnroll" required></select></div>
+            <div class="field"><label>Date</label><input id="logDate" type="date" required></div>
+            <div class="field"><label>Time In</label><input id="logIn" type="time" required></div>
+            <div class="field"><label>Time Out</label><input id="logOut" type="time" required></div>
+            <div class="field" style="flex-direction:row; gap:8px">
+              <button type="submit" class="btn primary">Save entry</button>
+              <button type="button" class="btn" id="logCancel" style="display:none">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>Today's & recent entries</h2><span class="hint" id="logCount"></span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- RECORDS -->
+    <section class="panel" id="tab-records">
+      <div class="section">
+        <div class="section-head"><h2>All records</h2><span class="hint">Filter and browse every logged entry</span></div>
+        <div class="filters">
+          <select id="recStudent"><option value="">All students</option></select>
+          <input type="date" id="recFrom" title="From date">
+          <input type="date" id="recTo" title="To date">
+          <button class="btn small" id="recReset">Reset filters</button>
+        </div>
+        <div class="section-body">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Course</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
+            <tbody id="recBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="panel" id="tab-users">
+      <div class="section">
+        <div class="section-head"><h2 id="userFormTitle">Add login user</h2><span class="hint">Anyone in this list can sign in to this dashboard</span></div>
+        <div class="section-body">
+          <form class="grid" id="userForm">
+            <input type="hidden" id="userId">
+            <div class="field"><label>Username</label><input id="userName" required placeholder="Admin"></div>
+            <div class="field"><label>Password</label><input id="userPass" required placeholder="Set a password"></div>
+            <div class="field" style="flex-direction:row; gap:8px">
+              <button type="submit" class="btn primary">Save</button>
+              <button type="button" class="btn" id="userCancel" style="display:none">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>Login users</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Username</th><th>Password</th><th>Actions</th></tr></thead>
+          <tbody id="userBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const STORE_KEY = "shd_data_v1";
+const USERS_KEY = "shd_users_v1";
+const AUTH_KEY = "shd_auth_user";
+let state = { students: [], logs: [], users: [] };
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function fmt(n){ return (Math.round(n*100)/100).toFixed(2); }
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+// ====== SUPABASE CONFIG — paste your project's values here, then re-upload this file ======
+const SUPABASE_URL = "https://tfszareafqwjnzksgwea.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Y3uX8l8L2HXUVoiQrBSWfA_kmT3wvSI";
+// ============================================================================================
+
+// ---------- storage: Supabase with localStorage fallback ----------
+let sb = null, usingSb = false;
+function isSupabaseConfigured(){
+  return SUPABASE_URL && !SUPABASE_URL.includes("YOUR-PROJECT") &&
+         SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR-ANON");
+}
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ state = JSON.parse(raw); return; }
+  }catch(e){ console.error("load failed", e); }
+  seedLocal();
+}
+function saveLocal(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+  catch(e){ console.error("save failed", e); toast("Could not save — storage unavailable"); }
+}
+function seedLocal(){
+  const s1 = uid(), s2 = uid(), s3 = uid();
+  state.students = [
+    {id:s1, enroll:"EN-1001", name:"Ayesha Khan", course:"Web Development", hours:120, join:"2026-01-05"},
+    {id:s2, enroll:"EN-1002", name:"Bilal Ahmed", course:"Graphic Design", hours:90, join:"2026-02-10"},
+    {id:s3, enroll:"EN-1003", name:"Sara Malik", course:"Web Development", hours:120, join:"2026-01-12"},
+  ];
+  const today = new Date();
+  const d = (off)=>{ const x=new Date(today); x.setDate(x.getDate()-off); return x.toISOString().slice(0,10); };
+  state.logs = [
+    {id:uid(), enroll:"EN-1001", date:d(0), tin:"09:00", tout:"13:30"},
+    {id:uid(), enroll:"EN-1001", date:d(2), tin:"09:15", tout:"13:00"},
+    {id:uid(), enroll:"EN-1002", date:d(1), tin:"10:00", tout:"14:00"},
+    {id:uid(), enroll:"EN-1003", date:d(0), tin:"09:00", tout:"12:45"},
+    {id:uid(), enroll:"EN-1003", date:d(20), tin:"09:00", tout:"13:00"},
+  ];
+  saveLocal();
+}
+
+function loadUsersLocal(){
+  try{
+    const raw = localStorage.getItem(USERS_KEY);
+    if(raw){ state.users = JSON.parse(raw); return; }
+  }catch(e){ console.error("load users failed", e); }
+  seedUsersLocal();
+}
+function saveUsersLocal(){
+  try{ localStorage.setItem(USERS_KEY, JSON.stringify(state.users)); }
+  catch(e){ console.error("save users failed", e); toast("Could not save users"); }
+}
+function seedUsersLocal(){
+  state.users = [{ id: uid(), username: "Admin", password: "P@kistan2003" }];
+  saveUsersLocal();
+}
+
+async function fetchUsersFromSupabase(){
+  const { data, error } = await sb.from("app_users").select("*").order("username");
+  if(error) throw error;
+  state.users = data.map(r=>({ id:r.id, username:r.username, password:r.password }));
+}
+
+async function fetchAllFromSupabase(){
+  const { data: stu, error: e1 } = await sb.from("students").select("*").order("enroll");
+  if(e1) throw e1;
+  state.students = stu.map(r=>({ id:r.id, enroll:r.enroll, name:r.name, course:r.course, hours:r.hours, join:r.join_date||"" }));
+  const { data: logs, error: e2 } = await sb.from("logs").select("*").order("date",{ascending:false});
+  if(e2) throw e2;
+  state.logs = logs.map(r=>({ id:r.id, enroll:r.enroll, date:r.date, tin:(r.time_in||"").slice(0,5), tout:(r.time_out||"").slice(0,5) }));
+  renderAll();
+}
+
+async function initApp(){
+  if(isSupabaseConfigured() && typeof window.supabase !== "undefined"){
+    try{
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      usingSb = true;
+      await fetchUsersFromSupabase();
+    }catch(e){
+      console.error("Supabase init failed", e);
+      usingSb = false;
+      toast("Supabase connection failed — using offline mode");
+    }
+  }
+  if(!usingSb) loadUsersLocal();
+
+  const savedUser = localStorage.getItem(AUTH_KEY);
+  if(savedUser && state.users.find(u=>u.username===savedUser)){
+    await enterApp();
+  } else {
+    document.getElementById("loginScreen").style.display = "flex";
+  }
+}
+
+async function enterApp(){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("appRoot").style.display = "block";
+  document.getElementById("saveModeNote").textContent = usingSb
+    ? "Saved permanently — synced via Supabase."
+    : "Saved in this browser only — add Supabase keys in the code to sync online.";
+  if(usingSb){ await fetchAllFromSupabase(); }
+  else { loadLocal(); renderAll(); }
+  renderUsers();
+}
+
+async function addOrUpdateStudent(id, data){
+  if(usingSb){
+    const row = { enroll: data.enroll, name: data.name, course: data.course, hours: data.hours, join_date: data.join || null };
+    if(id){ const { error } = await sb.from("students").update(row).eq("id", id); if(error) throw error; }
+    else { const { error } = await sb.from("students").insert(row); if(error) throw error; }
+    await fetchAllFromSupabase();
+  } else {
+    if(id) Object.assign(state.students.find(s=>s.id===id), data);
+    else state.students.push({id: uid(), ...data});
+    saveLocal(); renderAll();
+  }
+}
+async function removeStudent(id){
+  if(usingSb){ const { error } = await sb.from("students").delete().eq("id", id); if(error) throw error; await fetchAllFromSupabase(); }
+  else { state.students = state.students.filter(s=>s.id!==id); saveLocal(); renderAll(); }
+}
+async function renameStudentEnroll(oldEnroll, newEnroll){
+  if(oldEnroll===newEnroll) return;
+  if(usingSb){
+    const { error } = await sb.from("logs").update({ enroll: newEnroll }).eq("enroll", oldEnroll);
+    if(error) throw error;
+  } else {
+    state.logs.forEach(l=>{ if(l.enroll===oldEnroll) l.enroll = newEnroll; });
+  }
+}
+async function addOrUpdateLog(id, data){
+  if(usingSb){
+    const row = { enroll: data.enroll, date: data.date, time_in: data.tin, time_out: data.tout };
+    if(id){ const { error } = await sb.from("logs").update(row).eq("id", id); if(error) throw error; }
+    else { const { error } = await sb.from("logs").insert(row); if(error) throw error; }
+    await fetchAllFromSupabase();
+  } else {
+    if(id) Object.assign(state.logs.find(l=>l.id===id), data);
+    else state.logs.push({id: uid(), ...data});
+    saveLocal(); renderAll();
+  }
+}
+async function removeLog(id){
+  if(usingSb){ const { error } = await sb.from("logs").delete().eq("id", id); if(error) throw error; await fetchAllFromSupabase(); }
+  else { state.logs = state.logs.filter(l=>l.id!==id); saveLocal(); renderAll(); }
+}
+
+async function addOrUpdateUser(id, data){
+  if(usingSb){
+    if(id){ const { error } = await sb.from("app_users").update(data).eq("id", id); if(error) throw error; }
+    else { const { error } = await sb.from("app_users").insert(data); if(error) throw error; }
+    await fetchUsersFromSupabase();
+  } else {
+    if(id) Object.assign(state.users.find(u=>u.id===id), data);
+    else state.users.push({id: uid(), ...data});
+    saveUsersLocal();
+  }
+  renderUsers();
+}
+async function removeUser(id){
+  if(state.users.length<=1){ toast("At least one login user must remain"); return; }
+  if(usingSb){ const { error } = await sb.from("app_users").delete().eq("id", id); if(error) throw error; await fetchUsersFromSupabase(); }
+  else { state.users = state.users.filter(u=>u.id!==id); saveUsersLocal(); }
+  renderUsers();
+}
+
+function hoursOf(log){
+  const [ih,im]=log.tin.split(":").map(Number), [oh,om]=log.tout.split(":").map(Number);
+  let h = (oh+om/60) - (ih+im/60);
+  return h>0 ? h : 0;
+}
+function weekBounds(ref){
+  const d = new Date(ref); const day = (d.getDay()+6)%7; // 0=Mon
+  const mon = new Date(d); mon.setDate(d.getDate()-day); mon.setHours(0,0,0,0);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
+  return [mon, sun];
+}
+function monthBounds(ref){
+  const d = new Date(ref);
+  return [new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999)];
+}
+function inRange(dateStr, from, to){
+  const t = new Date(dateStr+"T12:00:00").getTime();
+  return t >= from.getTime() && t <= to.getTime();
+}
+function studentStats(enroll){
+  const today = new Date();
+  const [wS,wE] = weekBounds(today), [mS,mE] = monthBounds(today);
+  let week=0, month=0, total=0;
+  state.logs.filter(l=>l.enroll===enroll).forEach(l=>{
+    const h = hoursOf(l);
+    total += h;
+    if(inRange(l.date, wS, wE)) week += h;
+    if(inRange(l.date, mS, mE)) month += h;
+  });
+  return {week, month, total};
+}
+
+// ---------- rendering ----------
+function renderAll(){
+  renderDashboard(); renderStudents(); renderLogSelect(); renderLogs(); renderRecords();
+}
+
+function renderDashboard(){
+  const q = (document.getElementById("dashSearch").value||"").toLowerCase();
+  const body = document.getElementById("dashBody");
+  const rows = state.students
+    .filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
+  body.innerHTML = "";
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="10" class="empty">No students yet. Add one in the Students tab.</td></tr>`; }
+  rows.forEach((s,i)=>{
+    const st = studentStats(s.enroll);
+    const remaining = s.hours - st.total;
+    const badge = remaining<=0 ? `<span class="badge ok">Complete</span>` : `<span class="badge warn">${fmt(remaining)} left</span>`;
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
+      <td class="mono">${fmt(st.week)}</td><td class="mono">${fmt(st.month)}</td><td class="mono">${fmt(st.total)}</td>
+      <td class="mono">${fmt(s.hours)}</td><td class="mono">${fmt(remaining)}</td><td>${badge}</td>
+    </tr>`);
+  });
+
+  // stat cards
+  const totalStudents = state.students.length;
+  const totalHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).total,0);
+  const weekHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).week,0);
+  const completed = state.students.filter(s=>studentStats(s.enroll).total >= s.hours).length;
+  document.getElementById("statCards").innerHTML = `
+    <div class="card"><div class="k">Students</div><div class="v">${totalStudents}</div></div>
+    <div class="card"><div class="k">This week — all students</div><div class="v">${fmt(weekHoursAll)} <span>hrs</span></div></div>
+    <div class="card"><div class="k">Total logged — all time</div><div class="v">${fmt(totalHoursAll)} <span>hrs</span></div></div>
+    <div class="card"><div class="k">Courses completed</div><div class="v">${completed} <span>/ ${totalStudents}</span></div></div>
+  `;
+}
+
+function renderStudents(){
+  const q = (document.getElementById("stuSearch").value||"").toLowerCase();
+  const body = document.getElementById("stuBody");
+  const rows = state.students.filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
+  body.innerHTML = "";
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No students found.</td></tr>`; return; }
+  rows.forEach((s,i)=>{
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
+      <td class="mono">${fmt(s.hours)}</td><td>${s.join||"—"}</td>
+      <td class="rowactions">
+        <button class="btn small" data-edit="${s.id}">Edit</button>
+        <button class="btn small danger" data-del="${s.id}">Delete</button>
+      </td>
+    </tr>`);
+  });
+  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editStudent(b.dataset.edit));
+  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delStudent(b.dataset.del));
+}
+
+function renderLogSelect(){
+  const opts = state.students.map(s=>`<option value="${esc(s.enroll)}">${esc(s.enroll)} — ${esc(s.name)}</option>`).join("");
+  document.getElementById("logEnroll").innerHTML = opts || `<option value="">Add a student first</option>`;
+  const rec = document.getElementById("recStudent");
+  const cur = rec.value;
+  rec.innerHTML = `<option value="">All students</option>` + opts;
+  rec.value = cur;
+}
+
+function nameFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.name : "(removed)"; }
+function courseFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.course : "—"; }
+
+function renderLogs(){
+  const body = document.getElementById("logBody");
+  const rows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date)).slice(0,60);
+  body.innerHTML = "";
+  document.getElementById("logCount").textContent = `${state.logs.length} total entries`;
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No entries yet.</td></tr>`; return; }
+  rows.forEach(l=>{
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td>
+      <td>${l.tin}</td><td>${l.tout}</td><td class="mono">${fmt(hoursOf(l))}</td>
+      <td class="rowactions">
+        <button class="btn small" data-edit="${l.id}">Edit</button>
+        <button class="btn small danger" data-del="${l.id}">Delete</button>
+      </td>
+    </tr>`);
+  });
+  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editLog(b.dataset.edit));
+  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delLog(b.dataset.del));
+}
+
+function renderRecords(){
+  const enroll = document.getElementById("recStudent").value;
+  const from = document.getElementById("recFrom").value;
+  const to = document.getElementById("recTo").value;
+  const body = document.getElementById("recBody");
+  let rows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date));
+  if(enroll) rows = rows.filter(l=>l.enroll===enroll);
+  if(from) rows = rows.filter(l=>l.date >= from);
+  if(to) rows = rows.filter(l=>l.date <= to);
+  body.innerHTML = "";
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No records match these filters.</td></tr>`; return; }
+  rows.forEach(l=>{
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td><td>${esc(courseFor(l.enroll))}</td>
+      <td>${l.tin}</td><td>${l.tout}</td><td class="mono">${fmt(hoursOf(l))}</td>
+    </tr>`);
+  });
+}
+
+function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function renderUsers(){
+  const body = document.getElementById("userBody");
+  body.innerHTML = "";
+  if(!state.users.length){ body.innerHTML = `<tr><td colspan="3" class="empty">No login users yet.</td></tr>`; return; }
+  state.users.forEach(u=>{
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${esc(u.username)}</td>
+      <td><span class="pw-mask" data-shown="0">••••••••</span> <button class="btn small" data-reveal="${u.id}">Show</button></td>
+      <td class="rowactions">
+        <button class="btn small" data-edit="${u.id}">Edit</button>
+        <button class="btn small danger" data-del="${u.id}">Delete</button>
+      </td>
+    </tr>`);
+  });
+  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editUser(b.dataset.edit));
+  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delUser(b.dataset.del));
+  body.querySelectorAll("[data-reveal]").forEach(b=>b.onclick=()=>{
+    const u = state.users.find(x=>x.id===b.dataset.reveal);
+    const cell = b.previousElementSibling;
+    const shown = cell.dataset.shown === "1";
+    cell.textContent = shown ? "••••••••" : u.password;
+    cell.dataset.shown = shown ? "0" : "1";
+    b.textContent = shown ? "Show" : "Hide";
+  });
+}
+
+// ---------- students CRUD ----------
+const stuForm = document.getElementById("stuForm");
+stuForm.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const id = document.getElementById("stuId").value;
+  const enroll = document.getElementById("stuEnroll").value.trim();
+  const dup = state.students.find(s=>s.enroll===enroll && s.id!==id);
+  if(dup){ toast("That Enroll No already exists"); return; }
+  const data = {
+    enroll, name: document.getElementById("stuName").value.trim(),
+    course: document.getElementById("stuCourse").value.trim(),
+    hours: parseFloat(document.getElementById("stuHours").value)||0,
+    join: document.getElementById("stuJoin").value,
+  };
+  const submitBtn = stuForm.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  try{
+    if(id){
+      const oldEnroll = state.students.find(s=>s.id===id).enroll;
+      await addOrUpdateStudent(id, data);
+      await renameStudentEnroll(oldEnroll, enroll);
+      toast("Student updated");
+    } else {
+      await addOrUpdateStudent(null, data);
+      toast("Student added");
+    }
+    resetStuForm();
+  }catch(err){ console.error(err); toast("Could not save student"); }
+  finally{ submitBtn.disabled = false; }
+});
+function editStudent(id){
+  const s = state.students.find(s=>s.id===id); if(!s) return;
+  document.getElementById("stuId").value = s.id;
+  document.getElementById("stuEnroll").value = s.enroll;
+  document.getElementById("stuName").value = s.name;
+  document.getElementById("stuCourse").value = s.course;
+  document.getElementById("stuHours").value = s.hours;
+  document.getElementById("stuJoin").value = s.join||"";
+  document.getElementById("stuFormTitle").textContent = "Edit student";
+  document.getElementById("stuCancel").style.display = "inline-flex";
+  switchTab("students");
+}
+async function delStudent(id){
+  const s = state.students.find(s=>s.id===id); if(!s) return;
+  if(!confirm(`Delete ${s.name}? Their logged entries will stay but show as removed.`)) return;
+  try{ await removeStudent(id); }catch(err){ console.error(err); toast("Could not delete"); }
+}
+function resetStuForm(){
+  stuForm.reset(); document.getElementById("stuId").value = "";
+  document.getElementById("stuFormTitle").textContent = "Add student";
+  document.getElementById("stuCancel").style.display = "none";
+}
+document.getElementById("stuCancel").onclick = resetStuForm;
+
+// ---------- logs CRUD ----------
+const logForm = document.getElementById("logForm");
+logForm.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const enroll = document.getElementById("logEnroll").value;
+  if(!enroll){ toast("Add a student first"); return; }
+  const tin = document.getElementById("logIn").value, tout = document.getElementById("logOut").value;
+  if(tout <= tin){ toast("Time Out must be after Time In"); return; }
+  const id = document.getElementById("logId").value;
+  const data = { enroll, date: document.getElementById("logDate").value, tin, tout };
+  const submitBtn = logForm.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  try{
+    await addOrUpdateLog(id || null, data);
+    toast(id ? "Entry updated" : "Entry added");
+    resetLogForm();
+  }catch(err){ console.error(err); toast("Could not save entry"); }
+  finally{ submitBtn.disabled = false; }
+});
+function editLog(id){
+  const l = state.logs.find(l=>l.id===id); if(!l) return;
+  document.getElementById("logId").value = l.id;
+  document.getElementById("logEnroll").value = l.enroll;
+  document.getElementById("logDate").value = l.date;
+  document.getElementById("logIn").value = l.tin;
+  document.getElementById("logOut").value = l.tout;
+  document.getElementById("logFormTitle").textContent = "Edit entry";
+  document.getElementById("logCancel").style.display = "inline-flex";
+  switchTab("log");
+}
+async function delLog(id){
+  if(!confirm("Delete this log entry?")) return;
+  try{ await removeLog(id); }catch(err){ console.error(err); toast("Could not delete"); }
+}
+function resetLogForm(){
+  logForm.reset(); document.getElementById("logId").value = "";
+  document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("logFormTitle").textContent = "Add check-in / check-out";
+  document.getElementById("logCancel").style.display = "none";
+}
+document.getElementById("logCancel").onclick = resetLogForm;
+
+// ---------- users CRUD ----------
+const userForm = document.getElementById("userForm");
+userForm.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const id = document.getElementById("userId").value;
+  const username = document.getElementById("userName").value.trim();
+  const password = document.getElementById("userPass").value;
+  const dup = state.users.find(u=>u.username===username && u.id!==id);
+  if(dup){ toast("That username already exists"); return; }
+  const submitBtn = userForm.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  try{
+    await addOrUpdateUser(id || null, { username, password });
+    toast(id ? "User updated" : "User added");
+    resetUserForm();
+  }catch(err){ console.error(err); toast("Could not save user"); }
+  finally{ submitBtn.disabled = false; }
+});
+function editUser(id){
+  const u = state.users.find(u=>u.id===id); if(!u) return;
+  document.getElementById("userId").value = u.id;
+  document.getElementById("userName").value = u.username;
+  document.getElementById("userPass").value = u.password;
+  document.getElementById("userFormTitle").textContent = "Edit user";
+  document.getElementById("userCancel").style.display = "inline-flex";
+}
+async function delUser(id){
+  if(!confirm("Delete this login user?")) return;
+  try{ await removeUser(id); }catch(err){ console.error(err); toast("Could not delete"); }
+}
+function resetUserForm(){
+  userForm.reset(); document.getElementById("userId").value = "";
+  document.getElementById("userFormTitle").textContent = "Add login user";
+  document.getElementById("userCancel").style.display = "none";
+}
+document.getElementById("userCancel").onclick = resetUserForm;
+
+// ---------- login / logout ----------
+document.getElementById("loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const u = document.getElementById("loginUser").value.trim();
+  const p = document.getElementById("loginPass").value;
+  const errBox = document.getElementById("loginError");
+  const match = state.users.find(x=>x.username===u && x.password===p);
+  if(match){
+    errBox.textContent = "";
+    try{ localStorage.setItem(AUTH_KEY, match.username); }catch(e2){}
+    await enterApp();
+  } else {
+    errBox.textContent = "Incorrect username or password";
+  }
+});
+document.getElementById("logoutBtn").onclick = ()=>{
+  try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
+  location.reload();
+};
+
+// ---------- filters & search ----------
+document.getElementById("dashSearch").addEventListener("input", renderDashboard);
+document.getElementById("stuSearch").addEventListener("input", renderStudents);
+["recStudent","recFrom","recTo"].forEach(id=>document.getElementById(id).addEventListener("input", renderRecords));
+document.getElementById("recReset").onclick = ()=>{
+  document.getElementById("recStudent").value=""; document.getElementById("recFrom").value=""; document.getElementById("recTo").value="";
+  renderRecords();
+};
+
+// ---------- tabs ----------
+function switchTab(tab){
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tab));
+  const titles = { dashboard:["Dashboard","Week, month and total hours for every student"],
+    students:["Students","Add and manage student records"],
+    log:["Daily Log","Record each check-in and check-out"],
+    records:["Records","Browse and filter every logged entry"],
+    users:["Users","Manage who can sign in to this dashboard"] };
+  document.getElementById("pageTitle").textContent = titles[tab][0];
+  document.getElementById("pageSub").textContent = titles[tab][1];
+}
+document.getElementById("nav").addEventListener("click", e=>{
+  const b = e.target.closest(".navbtn"); if(b) switchTab(b.dataset.tab);
+});
+document.getElementById("addStudentBtn").onclick = ()=> switchTab("students");
+document.getElementById("addLogBtn").onclick = ()=> switchTab("log");
+
+// ---------- theme ----------
+document.getElementById("themeBtn").onclick = ()=>{
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try{ localStorage.setItem("shd_theme", next); }catch(e){}
+};
+try{ const t = localStorage.getItem("shd_theme"); if(t) document.documentElement.setAttribute("data-theme", t); }catch(e){}
+
+// ---------- export ----------
+document.getElementById("exportBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("exportBtn");
+  btn.disabled = true; btn.textContent = "Preparing…";
+  try{
+    const wb = XLSX.utils.book_new();
+    const stuRows = state.students.map((s,i)=>({
+      "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
+      "Required Hours": s.hours, "Join Date": s.join||"" }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(stuRows), "Students");
+
+    const logRows = [...state.logs].sort((a,b)=>a.date.localeCompare(b.date)).map(l=>({
+      "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
+      "Date": l.date, "Time In": l.tin, "Time Out": l.tout, "Hours Worked": Number(fmt(hoursOf(l))) }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logRows), "Daily Log");
+
+    const dashRows = state.students.map((s,i)=>{
+      const st = studentStats(s.enroll);
+      return { "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
+        "Week Hours": Number(fmt(st.week)), "Month Hours": Number(fmt(st.month)), "Total Hours": Number(fmt(st.total)),
+        "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)) };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashRows), "Dashboard");
+
+    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const filename = `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`;
+    const blob = new Blob([out], {type:"application/octet-stream"});
+
+    // Use Claude's download capability when running inside a Claude artifact;
+    // otherwise (self-hosted / plain browser) fall back to a normal browser download.
+    let usedClaudeDownload = false;
+    if(typeof claude !== "undefined" && claude.use){
+      try{
+        const downloads = await claude.use("downloads");
+        if(downloads){
+          await downloads.save({ filename, data: blob });
+          usedClaudeDownload = true;
+        }
+      }catch(err){
+        if(err && err.code === "declined"){ usedClaudeDownload = true; /* user cancelled, don't fall back */ }
+      }
+    }
+    if(!usedClaudeDownload){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    }
+    toast("Excel file saved");
+  }catch(e){
+    console.error(e); toast("Export failed — check console");
+  }finally{
+    btn.disabled = false; btn.textContent = "⬇ Export Excel";
+  }
+});
+
+// ---------- init ----------
+document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
+initApp();
+</script>
+</body>
+</html>
