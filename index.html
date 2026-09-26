@@ -170,6 +170,7 @@ tbody tr:hover{background:var(--surface2)}
     </div>
     <nav class="tabbar" id="nav">
       <button class="navbtn active" data-tab="dashboard"><span class="dot"></span>Dashboard</button>
+      <button class="navbtn" data-tab="search"><span class="dot"></span>Search</button>
       <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
       <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
       <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
@@ -207,6 +208,18 @@ tbody tr:hover{background:var(--surface2)}
           </table></div>
         </div>
       </div>
+    </section>
+
+    <!-- SEARCH -->
+    <section class="panel" id="tab-search">
+      <div class="section">
+        <div class="section-head"><h2>Find a student</h2><span class="hint">Search by Enroll No (roll number) or Name</span></div>
+        <div class="section-body">
+          <input class="search" id="searchInput" placeholder="Type Enroll No or Name..." style="max-width:360px">
+          <div id="searchSuggestions" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div id="searchProfile"></div>
     </section>
 
     <!-- STUDENTS -->
@@ -572,9 +585,79 @@ function studentStats(enroll){
 }
 
 // ---------- rendering ----------
+let currentSearchId = null;
 function renderAll(){
   renderDashboard(); renderStudents(); renderLogSelect(); renderLogs(); renderRecords();
+  if(currentSearchId) showStudentProfile(currentSearchId);
 }
+
+function renderSearchSuggestions(){
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const box = document.getElementById("searchSuggestions");
+  const profile = document.getElementById("searchProfile");
+  if(!q){ box.innerHTML=""; profile.innerHTML=""; currentSearchId = null; return; }
+  const matches = state.students.filter(s=> s.enroll.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
+  if(!matches.length){
+    box.innerHTML = `<div class="empty">No student matches "${esc(q)}"</div>`;
+    profile.innerHTML = ""; currentSearchId = null; return;
+  }
+  if(matches.length===1){
+    box.innerHTML = "";
+    showStudentProfile(matches[0].id);
+  } else {
+    box.innerHTML = matches.map(s=>`<button class="btn small" data-pick="${s.id}">${esc(s.enroll)} — ${esc(s.name)}</button>`).join("");
+    box.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
+      document.getElementById("searchInput").value = state.students.find(s=>s.id===b.dataset.pick).enroll;
+      box.innerHTML = "";
+      showStudentProfile(b.dataset.pick);
+    });
+    profile.innerHTML = "";
+  }
+}
+function showStudentProfile(id){
+  const s = state.students.find(x=>x.id===id);
+  const profile = document.getElementById("searchProfile");
+  if(!s){ profile.innerHTML = ""; currentSearchId = null; return; }
+  currentSearchId = id;
+  const st = studentStats(s.enroll);
+  const comp = completionStats(s);
+  const remaining = s.hours - st.total;
+  const idx = state.students.findIndex(x=>x.id===id);
+  const logs = state.logs.filter(l=>l.enroll===s.enroll).sort((a,b)=>b.date.localeCompare(a.date));
+  const rowsHtml = logs.length ? logs.map(l=>{
+    const isLeave = l.status==="leave";
+    const badge = isLeave ? '<span class="badge leave">Leave</span>'
+      : l.tout ? '<span class="badge ok">Present</span>'
+      : '<span class="badge pending">Checked In</span>';
+    return `<tr><td>${l.date}</td><td>${badge}</td><td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="empty">No attendance entries yet.</td></tr>`;
+  profile.innerHTML = `
+    <div class="section">
+      <div class="section-head"><h2>${esc(s.name)}</h2><span class="hint">${esc(s.enroll)}</span></div>
+      <div class="section-body">
+        <div class="cards">
+          <div class="card"><div class="k">Serial No</div><div class="v">${idx+1}</div></div>
+          <div class="card"><div class="k">Course</div><div class="v" style="font-size:16px">${esc(s.course)}</div></div>
+          <div class="card"><div class="k">Join Date</div><div class="v" style="font-size:16px">${s.join||"—"}</div></div>
+          <div class="card"><div class="k">Required Hours</div><div class="v">${fmt(s.hours)}</div></div>
+          <div class="card"><div class="k">Week Hours</div><div class="v">${fmt(st.week)}</div></div>
+          <div class="card"><div class="k">Month Hours</div><div class="v">${fmt(st.month)}</div></div>
+          <div class="card"><div class="k">Total Hours</div><div class="v">${fmt(st.total)}</div></div>
+          <div class="card"><div class="k">Remaining Hours</div><div class="v">${fmt(remaining)}</div></div>
+          <div class="card"><div class="k">Completion</div><div class="v">${pctFmt(comp.pct)}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h2>Attendance history</h2><span class="hint">${logs.length} entries</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+document.getElementById("searchInput").addEventListener("input", renderSearchSuggestions);
 
 function renderDashboard(){
   const q = (document.getElementById("dashSearch").value||"").toLowerCase();
@@ -954,6 +1037,7 @@ function switchTab(tab){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tab));
   const titles = { dashboard:["Dashboard","Week, month and total hours for every student"],
+    search:["Search","Look up a student by roll number or name — full profile & history"],
     students:["Students","Add and manage student records"],
     log:["Daily Log","Record each check-in and check-out"],
     records:["Records","Browse and filter every logged entry"],
