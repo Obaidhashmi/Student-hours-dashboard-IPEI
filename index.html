@@ -173,7 +173,7 @@ tbody tr:hover{background:var(--surface2)}
       <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
       <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
       <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
-      <button class="navbtn" data-tab="users"><span class="dot"></span>Users</button>
+      <button class="navbtn" data-tab="users" id="usersNavBtn"><span class="dot"></span>Users</button>
     </nav>
     <div class="topbar">
       <div>
@@ -325,6 +325,7 @@ const STORE_KEY = "shd_data_v1";
 const USERS_KEY = "shd_users_v1";
 const AUTH_KEY = "shd_auth_user";
 let state = { students: [], logs: [], users: [] };
+let currentUsername = null;
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function fmt(n){ return (Math.round(n*100)/100).toFixed(2); }
@@ -336,6 +337,7 @@ function toast(msg){
 function errMsg(e){
   return (e && (e.message || e.error_description || e.details || e.hint)) || (typeof e === "string" ? e : JSON.stringify(e)) || "Unknown error";
 }
+function isAdmin(){ return currentUsername === "Admin"; }
 
 // ====== SUPABASE CONFIG — paste your project's values here, then re-upload this file ======
 const SUPABASE_URL = "https://tfszareafqwjnzksgwea.supabase.co";
@@ -430,9 +432,21 @@ async function initApp(){
 
   const savedUser = localStorage.getItem(AUTH_KEY);
   if(savedUser && state.users.find(u=>u.username===savedUser)){
+    currentUsername = savedUser;
     await enterApp();
   } else {
     document.getElementById("loginScreen").style.display = "flex";
+  }
+}
+
+function applyRoleUI(){
+  const usersBtn = document.getElementById("usersNavBtn");
+  if(isAdmin()){
+    usersBtn.style.display = "";
+  } else {
+    usersBtn.style.display = "none";
+    // safety: if a non-admin is somehow on the Users tab, bounce them to Dashboard
+    if(document.getElementById("tab-users").classList.contains("active")) switchTab("dashboard");
   }
 }
 
@@ -442,6 +456,7 @@ async function enterApp(){
   document.getElementById("saveModeNote").textContent = usingSb
     ? "Saved permanently — synced via Supabase."
     : "Saved in this browser only — add Supabase keys in the code to sync online.";
+  applyRoleUI();
   if(usingSb){
     try{ await fetchAllFromSupabase(); }
     catch(e){
@@ -450,7 +465,7 @@ async function enterApp(){
       toast("Could not load data from Supabase: " + msg);
     }
   } else { loadLocal(); renderAll(); }
-  renderUsers();
+  if(isAdmin()) renderUsers();
 }
 
 async function addOrUpdateStudent(id, data){
@@ -496,6 +511,7 @@ async function removeLog(id){
 }
 
 async function addOrUpdateUser(id, data){
+  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
   if(usingSb){
     if(id){ const { error } = await sb.from("app_users").update(data).eq("id", id); if(error) throw error; }
     else { const { error } = await sb.from("app_users").insert(data); if(error) throw error; }
@@ -508,6 +524,7 @@ async function addOrUpdateUser(id, data){
   renderUsers();
 }
 async function removeUser(id){
+  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
   if(state.users.length<=1){ toast("At least one login user must remain"); return; }
   if(usingSb){ const { error } = await sb.from("app_users").delete().eq("id", id); if(error) throw error; await fetchUsersFromSupabase(); }
   else { state.users = state.users.filter(u=>u.id!==id); saveUsersLocal(); }
@@ -521,8 +538,6 @@ function hoursOf(log){
   return h>0 ? h : 0;
 }
 function pctFmt(p){ return (p===null || p===undefined || isNaN(p)) ? "—" : (Math.round(p*100)/100)+"%"; }
-// Completion % is total hours logged so far, out of the student's required hours —
-// e.g. 10 hrs done out of 120 required = 8.33%. Not affected by daily present/leave counts.
 function completionStats(s){
   const st = studentStats(s.enroll);
   if(!s.hours){ return { total: st.total, required: s.hours, pct: null }; }
@@ -582,7 +597,6 @@ function renderDashboard(){
     </tr>`);
   });
 
-  // stat cards
   const totalStudents = state.students.length;
   const totalHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).total,0);
   const weekHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).week,0);
@@ -677,7 +691,6 @@ function renderRecords(){
   if(from) rows = rows.filter(l=>l.date >= from);
   if(to) rows = rows.filter(l=>l.date <= to);
 
-  // completion % — total hours logged vs required hours (overall, not limited by the date filters above)
   let statsHtml;
   if(enroll){
     const s = state.students.find(s=>s.enroll===enroll);
@@ -714,6 +727,7 @@ function renderRecords(){
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 function renderUsers(){
+  if(!isAdmin()) return;
   const body = document.getElementById("userBody");
   body.innerHTML = "";
   if(!state.users.length){ body.innerHTML = `<tr><td colspan="3" class="empty">No login users yet.</td></tr>`; return; }
@@ -868,6 +882,7 @@ document.getElementById("logCancel").onclick = resetLogForm;
 const userForm = document.getElementById("userForm");
 userForm.addEventListener("submit", async e=>{
   e.preventDefault();
+  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
   const id = document.getElementById("userId").value;
   const username = document.getElementById("userName").value.trim();
   const password = document.getElementById("userPass").value;
@@ -883,6 +898,7 @@ userForm.addEventListener("submit", async e=>{
   finally{ submitBtn.disabled = false; }
 });
 function editUser(id){
+  if(!isAdmin()) return;
   const u = state.users.find(u=>u.id===id); if(!u) return;
   document.getElementById("userId").value = u.id;
   document.getElementById("userName").value = u.username;
@@ -891,6 +907,7 @@ function editUser(id){
   document.getElementById("userCancel").style.display = "inline-flex";
 }
 async function delUser(id){
+  if(!isAdmin()) return;
   if(!confirm("Delete this login user?")) return;
   try{ await removeUser(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
 }
@@ -910,6 +927,7 @@ document.getElementById("loginForm").addEventListener("submit", async e=>{
   const match = state.users.find(x=>x.username===u && x.password===p);
   if(match){
     errBox.textContent = "";
+    currentUsername = match.username;
     try{ localStorage.setItem(AUTH_KEY, match.username); }catch(e2){}
     await enterApp();
   } else {
@@ -932,6 +950,7 @@ document.getElementById("recReset").onclick = ()=>{
 
 // ---------- tabs ----------
 function switchTab(tab){
+  if(tab === "users" && !isAdmin()) tab = "dashboard";
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tab));
   const titles = { dashboard:["Dashboard","Week, month and total hours for every student"],
@@ -988,8 +1007,6 @@ document.getElementById("exportBtn").addEventListener("click", async ()=>{
     const filename = `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`;
     const blob = new Blob([out], {type:"application/octet-stream"});
 
-    // Use Claude's download capability when running inside a Claude artifact;
-    // otherwise (self-hosted / plain browser) fall back to a normal browser download.
     let usedClaudeDownload = false;
     if(typeof claude !== "undefined" && claude.use){
       try{
@@ -999,7 +1016,7 @@ document.getElementById("exportBtn").addEventListener("click", async ()=>{
           usedClaudeDownload = true;
         }
       }catch(err){
-        if(err && err.code === "declined"){ usedClaudeDownload = true; /* user cancelled, don't fall back */ }
+        if(err && err.code === "declined"){ usedClaudeDownload = true; }
       }
     }
     if(!usedClaudeDownload){
