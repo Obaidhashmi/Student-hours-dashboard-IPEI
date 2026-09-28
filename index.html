@@ -116,6 +116,9 @@ tbody tr:hover{background:var(--surface2)}
 .type-toggle label.active{border-color:var(--accent); color:var(--ink); background:rgba(15,110,92,.08)}
 .recstats{padding:10px 16px; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--ink-dim)}
 .recstats strong{color:var(--ink)}
+.pager{display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; padding:12px 16px}
+.pager .info{font-size:12px; color:var(--ink-dim); margin:0 8px}
+.pager .btn.current{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
 .empty{padding:26px; text-align:center; color:var(--ink-dim); font-size:13px}
 .search{max-width:260px}
 .filters{display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border)}
@@ -281,6 +284,7 @@ tbody tr:hover{background:var(--surface2)}
           <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
           <tbody id="logBody"></tbody>
         </table></div>
+        <div class="pager" id="logPager"></div>
       </div>
     </section>
 
@@ -300,6 +304,7 @@ tbody tr:hover{background:var(--surface2)}
             <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
             <tbody id="recBody"></tbody>
           </table></div>
+          <div class="pager" id="recPager"></div>
         </div>
       </div>
     </section>
@@ -727,11 +732,44 @@ function renderLogSelect(){
 function nameFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.name : "(removed)"; }
 function courseFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.course : "—"; }
 
+const PAGE_SIZE = 25;
+let logPage = 1, recPage = 1;
+function pageList(cur, total){
+  if(total <= 7) return Array.from({length:total}, (_,i)=>i+1);
+  const set = new Set([1, total, cur, cur-1, cur+1]);
+  if(cur <= 3) [2,3,4].forEach(n=>set.add(n));
+  if(cur >= total-2) [total-1,total-2,total-3].forEach(n=>set.add(n));
+  const nums = [...set].filter(n=>n>=1 && n<=total).sort((a,b)=>a-b);
+  const out = [];
+  nums.forEach((n,i)=>{ if(i>0 && n-nums[i-1]>1) out.push("…"); out.push(n); });
+  return out;
+}
+function renderPager(elId, page, totalItems, onGo){
+  const el = document.getElementById(elId);
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  if(totalItems <= PAGE_SIZE){ el.innerHTML = ""; return; }
+  const from = (page-1)*PAGE_SIZE + 1, to = Math.min(page*PAGE_SIZE, totalItems);
+  let html = `<button class="btn small" data-go="${page-1}" ${page<=1?"disabled":""}>← Previous</button>`;
+  pageList(page, totalPages).forEach(n=>{
+    html += n==="…" ? `<span class="info">…</span>`
+      : `<button class="btn small ${n===page?"current":""}" data-go="${n}">${n}</button>`;
+  });
+  html += `<button class="btn small" data-go="${page+1}" ${page>=totalPages?"disabled":""}>Next →</button>`;
+  html += `<span class="info">Showing ${from}–${to} of ${totalItems}</span>`;
+  el.innerHTML = html;
+  el.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ if(!b.disabled) onGo(Number(b.dataset.go)); });
+}
+
 function renderLogs(){
   const body = document.getElementById("logBody");
-  const rows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date)).slice(0,60);
+  const all = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date) || (b.tin||"").localeCompare(a.tin||""));
+  const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  if(logPage > totalPages) logPage = totalPages;
+  if(logPage < 1) logPage = 1;
+  const rows = all.slice((logPage-1)*PAGE_SIZE, logPage*PAGE_SIZE);
   body.innerHTML = "";
   document.getElementById("logCount").textContent = `${state.logs.length} total entries`;
+  renderPager("logPager", logPage, all.length, n=>{ logPage = n; renderLogs(); });
   if(!rows.length){ body.innerHTML = `<tr><td colspan="8" class="empty">No entries yet.</td></tr>`; return; }
   rows.forEach(l=>{
     const isLeave = l.status === "leave";
@@ -769,10 +807,15 @@ function renderRecords(){
   const from = document.getElementById("recFrom").value;
   const to = document.getElementById("recTo").value;
   const body = document.getElementById("recBody");
-  let rows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date));
-  if(enroll) rows = rows.filter(l=>l.enroll===enroll);
-  if(from) rows = rows.filter(l=>l.date >= from);
-  if(to) rows = rows.filter(l=>l.date <= to);
+  let allRows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date) || (b.tin||"").localeCompare(a.tin||""));
+  if(enroll) allRows = allRows.filter(l=>l.enroll===enroll);
+  if(from) allRows = allRows.filter(l=>l.date >= from);
+  if(to) allRows = allRows.filter(l=>l.date <= to);
+  const recTotalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
+  if(recPage > recTotalPages) recPage = recTotalPages;
+  if(recPage < 1) recPage = 1;
+  const rows = allRows.slice((recPage-1)*PAGE_SIZE, recPage*PAGE_SIZE);
+  renderPager("recPager", recPage, allRows.length, n=>{ recPage = n; renderRecords(); });
 
   let statsHtml;
   if(enroll){
@@ -951,6 +994,7 @@ async function delLog(id){
   try{ await removeLog(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
 }
 function resetLogForm(){
+  logPage = 1;
   logForm.reset(); document.getElementById("logId").value = "";
   document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
   const presentRadio = logForm.querySelector('input[name="logType"][value="present"]');
@@ -1025,8 +1069,9 @@ document.getElementById("logoutBtn").onclick = ()=>{
 // ---------- filters & search ----------
 document.getElementById("dashSearch").addEventListener("input", renderDashboard);
 document.getElementById("stuSearch").addEventListener("input", renderStudents);
-["recStudent","recFrom","recTo"].forEach(id=>document.getElementById(id).addEventListener("input", renderRecords));
+["recStudent","recFrom","recTo"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ recPage = 1; renderRecords(); }));
 document.getElementById("recReset").onclick = ()=>{
+  recPage = 1;
   document.getElementById("recStudent").value=""; document.getElementById("recFrom").value=""; document.getElementById("recTo").value="";
   renderRecords();
 };
