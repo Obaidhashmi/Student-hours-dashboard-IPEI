@@ -119,6 +119,9 @@ tbody tr:hover{background:var(--surface2)}
 .pager{display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; padding:12px 16px}
 .pager .info{font-size:12px; color:var(--ink-dim); margin:0 8px}
 .pager .btn.current{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.status-select{width:auto; min-width:120px; font-weight:700; padding:6px 8px}
+.status-select.complete{color:var(--green); border-color:var(--green)}
+.status-select.pending{color:var(--amber); border-color:var(--amber)}
 .empty{padding:26px; text-align:center; color:var(--ink-dim); font-size:13px}
 .search{max-width:260px}
 .filters{display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border)}
@@ -177,6 +180,7 @@ tbody tr:hover{background:var(--surface2)}
       <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
       <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
       <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
+      <button class="navbtn" data-tab="tests"><span class="dot"></span>Module Test & Interview</button>
       <button class="navbtn" data-tab="users" id="usersNavBtn"><span class="dot"></span>Users</button>
     </nav>
     <div class="topbar">
@@ -280,6 +284,12 @@ tbody tr:hover{background:var(--surface2)}
       </div>
       <div class="section">
         <div class="section-head"><h2>Today's & recent entries</h2><span class="hint" id="logCount"></span></div>
+        <div class="filters">
+          <span style="font-size:12px; color:var(--ink-dim); align-self:center">Export check-in/out sheet (leave dates empty for all):</span>
+          <input type="date" id="logExpFrom" title="From date (optional)" style="max-width:160px">
+          <input type="date" id="logExpTo" title="To date (optional)" style="max-width:160px">
+          <button class="btn small primary" id="logExportBtn">⬇ Export Check-In/Out (Excel)</button>
+        </div>
         <div class="table-wrap"><table>
           <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
           <tbody id="logBody"></tbody>
@@ -305,6 +315,32 @@ tbody tr:hover{background:var(--surface2)}
             <tbody id="recBody"></tbody>
           </table></div>
           <div class="pager" id="recPager"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE TEST & INTERVIEW -->
+    <section class="panel" id="tab-tests">
+      <div class="cards" id="testCards"></div>
+      <div class="section">
+        <div class="section-head"><h2>Module Test & Interview</h2><span class="hint">Set each student to Pending or Complete</span></div>
+        <div class="filters">
+          <input class="search" id="testSearch" placeholder="Search name, enroll no, course...">
+          <select id="testFilter" style="max-width:240px">
+            <option value="">All students</option>
+            <option value="mt-pending">Module Test — Pending</option>
+            <option value="mt-complete">Module Test — Complete</option>
+            <option value="iv-pending">Interview — Pending</option>
+            <option value="iv-complete">Interview — Complete</option>
+          </select>
+          <button class="btn small primary" id="testExportBtn">⬇ Export (Excel)</button>
+        </div>
+        <div class="section-body">
+          <div class="table-wrap"><table>
+            <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Module Test</th><th>Interview</th></tr></thead>
+            <tbody id="testBody"></tbody>
+          </table></div>
+          <div class="pager" id="testPager"></div>
         </div>
       </div>
     </section>
@@ -383,7 +419,7 @@ function saveLocal(){
 function seedLocal(){
   const s1 = uid(), s2 = uid(), s3 = uid();
   state.students = [
-    {id:s1, enroll:"EN-1001", name:"Ayesha Khan", course:"Web Development", hours:120, join:"2026-01-05"},
+    {id:s1, enroll:"EN-1001", name:"Ayesha Khan", course:"Web Development", hours:120, join:"2026-01-05", moduleTest:"complete", interview:"pending"},
     {id:s2, enroll:"EN-1002", name:"Bilal Ahmed", course:"Graphic Design", hours:90, join:"2026-02-10"},
     {id:s3, enroll:"EN-1003", name:"Sara Malik", course:"Web Development", hours:120, join:"2026-01-12"},
   ];
@@ -426,7 +462,7 @@ async function fetchUsersFromSupabase(){
 async function fetchAllFromSupabase(){
   const { data: stu, error: e1 } = await sb.from("students").select("*").order("enroll");
   if(e1) throw e1;
-  state.students = stu.map(r=>({ id:r.id, enroll:r.enroll, name:r.name, course:r.course, hours:r.hours, join:r.join_date||"" }));
+  state.students = stu.map(r=>({ id:r.id, enroll:r.enroll, name:r.name, course:r.course, hours:r.hours, join:r.join_date||"", moduleTest:r.module_test==="complete"?"complete":"pending", interview:r.interview==="complete"?"complete":"pending" }));
   const { data: logs, error: e2 } = await sb.from("logs").select("*").order("date",{ascending:false});
   if(e2) throw e2;
   state.logs = logs.map(r=>({ id:r.id, enroll:r.enroll, date:r.date, tin:(r.time_in||"").slice(0,5), tout:(r.time_out||"").slice(0,5), status:r.status||"present" }));
@@ -501,6 +537,17 @@ async function addOrUpdateStudent(id, data){
 async function removeStudent(id){
   if(usingSb){ const { error } = await sb.from("students").delete().eq("id", id); if(error) throw error; await fetchAllFromSupabase(); }
   else { state.students = state.students.filter(s=>s.id!==id); saveLocal(); renderAll(); }
+}
+async function updateAssessment(id, field, value){
+  const s = state.students.find(x=>x.id===id); if(!s) return;
+  const prev = s[field];
+  s[field] = value;                       // update screen immediately
+  renderAll();
+  if(usingSb){
+    const col = field==="moduleTest" ? "module_test" : "interview";
+    const { error } = await sb.from("students").update({ [col]: value }).eq("id", id);
+    if(error){ s[field] = prev; renderAll(); throw error; }
+  } else { saveLocal(); }
 }
 async function renameStudentEnroll(oldEnroll, newEnroll){
   if(oldEnroll===newEnroll) return;
@@ -592,9 +639,53 @@ function studentStats(enroll){
 // ---------- rendering ----------
 let currentSearchId = null;
 function renderAll(){
-  renderDashboard(); renderStudents(); renderLogSelect(); renderLogs(); renderRecords();
+  renderDashboard(); renderStudents(); renderLogSelect(); renderLogs(); renderRecords(); renderTests();
   if(currentSearchId) showStudentProfile(currentSearchId);
 }
+
+let testPage = 1;
+const mtOf = s => s.moduleTest==="complete" ? "complete" : "pending";
+const ivOf = s => s.interview==="complete" ? "complete" : "pending";
+function renderTests(){
+  const q = (document.getElementById("testSearch").value||"").toLowerCase();
+  const f = document.getElementById("testFilter").value;
+  const body = document.getElementById("testBody");
+  const n = state.students.length;
+  const mtDone = state.students.filter(s=>mtOf(s)==="complete").length;
+  const ivDone = state.students.filter(s=>ivOf(s)==="complete").length;
+  document.getElementById("testCards").innerHTML = `
+    <div class="card"><div class="k">Module Test — Complete</div><div class="v">${mtDone} <span>/ ${n}</span></div></div>
+    <div class="card"><div class="k">Module Test — Pending</div><div class="v">${n-mtDone}</div></div>
+    <div class="card"><div class="k">Interview — Complete</div><div class="v">${ivDone} <span>/ ${n}</span></div></div>
+    <div class="card"><div class="k">Interview — Pending</div><div class="v">${n-ivDone}</div></div>`;
+  let rows = state.students.filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
+  if(f==="mt-pending") rows = rows.filter(s=>mtOf(s)==="pending");
+  if(f==="mt-complete") rows = rows.filter(s=>mtOf(s)==="complete");
+  if(f==="iv-pending") rows = rows.filter(s=>ivOf(s)==="pending");
+  if(f==="iv-complete") rows = rows.filter(s=>ivOf(s)==="complete");
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  if(testPage > totalPages) testPage = totalPages;
+  if(testPage < 1) testPage = 1;
+  const pageRows = rows.slice((testPage-1)*PAGE_SIZE, testPage*PAGE_SIZE);
+  renderPager("testPager", testPage, rows.length, p=>{ testPage = p; renderTests(); });
+  body.innerHTML = "";
+  if(!pageRows.length){ body.innerHTML = `<tr><td colspan="6" class="empty">No students found.</td></tr>`; return; }
+  const sel = (id, field, val) => `<select class="status-select ${val}" data-id="${id}" data-field="${field}">
+      <option value="pending" ${val==="pending"?"selected":""}>Pending</option>
+      <option value="complete" ${val==="complete"?"selected":""}>Complete</option></select>`;
+  pageRows.forEach((s,i)=>{
+    body.insertAdjacentHTML("beforeend", `<tr>
+      <td>${(testPage-1)*PAGE_SIZE+i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
+      <td>${sel(s.id,"moduleTest",mtOf(s))}</td><td>${sel(s.id,"interview",ivOf(s))}</td>
+    </tr>`);
+  });
+  body.querySelectorAll("select[data-field]").forEach(el=>el.onchange = async ()=>{
+    try{ await updateAssessment(el.dataset.id, el.dataset.field, el.value); toast("Saved"); }
+    catch(err){ console.error(err); toast("Could not save: " + errMsg(err)); }
+  });
+}
+document.getElementById("testSearch").addEventListener("input", ()=>{ testPage = 1; renderTests(); });
+document.getElementById("testFilter").addEventListener("input", ()=>{ testPage = 1; renderTests(); });
 
 function renderSearchSuggestions(){
   const q = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -650,6 +741,8 @@ function showStudentProfile(id){
           <div class="card"><div class="k">Total Hours</div><div class="v">${fmt(st.total)}</div></div>
           <div class="card"><div class="k">Remaining Hours</div><div class="v">${fmt(remaining)}</div></div>
           <div class="card"><div class="k">Completion</div><div class="v">${pctFmt(comp.pct)}</div></div>
+          <div class="card"><div class="k">Module Test</div><div class="v" style="font-size:16px"><span class="badge ${mtOf(s)==="complete"?"ok":"warn"}">${mtOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
+          <div class="card"><div class="k">Interview</div><div class="v" style="font-size:16px"><span class="badge ${ivOf(s)==="complete"?"ok":"warn"}">${ivOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
         </div>
       </div>
     </div>
@@ -1086,6 +1179,7 @@ function switchTab(tab){
     students:["Students","Add and manage student records"],
     log:["Daily Log","Record each check-in and check-out"],
     records:["Records","Browse and filter every logged entry"],
+    tests:["Module Test & Interview","Mark each student's module test and interview as Pending or Complete"],
     users:["Users","Manage who can sign in to this dashboard"] };
   document.getElementById("pageTitle").textContent = titles[tab][0];
   document.getElementById("pageSub").textContent = titles[tab][1];
@@ -1106,62 +1200,107 @@ document.getElementById("themeBtn").onclick = ()=>{
 try{ const t = localStorage.getItem("shd_theme"); if(t) document.documentElement.setAttribute("data-theme", t); }catch(e){}
 
 // ---------- export ----------
-document.getElementById("exportBtn").addEventListener("click", async ()=>{
-  const btn = document.getElementById("exportBtn");
-  btn.disabled = true; btn.textContent = "Preparing…";
-  try{
-    const wb = XLSX.utils.book_new();
-    const stuRows = state.students.map((s,i)=>({
-      "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-      "Required Hours": s.hours, "Join Date": s.join||"" }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(stuRows), "Students");
-
-    const logRows = [...state.logs].sort((a,b)=>a.date.localeCompare(b.date)).map(l=>({
-      "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
-      "Date": l.date, "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
-      "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logRows), "Daily Log");
-
-    const dashRows = state.students.map((s,i)=>{
-      const st = studentStats(s.enroll);
-      const comp = completionStats(s);
-      return { "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-        "Week Hours": Number(fmt(st.week)), "Month Hours": Number(fmt(st.month)), "Total Hours": Number(fmt(st.total)),
-        "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)),
-        "Completion %": comp.pct===null ? "" : Math.round(comp.pct*100)/100 };
-    });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashRows), "Dashboard");
-
-    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const filename = `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`;
-    const blob = new Blob([out], {type:"application/octet-stream"});
-
-    let usedClaudeDownload = false;
-    if(typeof claude !== "undefined" && claude.use){
-      try{
-        const downloads = await claude.use("downloads");
-        if(downloads){
-          await downloads.save({ filename, data: blob });
-          usedClaudeDownload = true;
-        }
-      }catch(err){
-        if(err && err.code === "declined"){ usedClaudeDownload = true; }
-      }
-    }
-    if(!usedClaudeDownload){
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    }
-    toast("Excel file saved");
-  }catch(e){
-    console.error(e); toast("Export failed — check console");
-  }finally{
-    btn.disabled = false; btn.textContent = "⬇ Export Excel";
+async function saveWorkbook(wb, filename){
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([out], {type:"application/octet-stream"});
+  let usedClaudeDownload = false;
+  if(typeof claude !== "undefined" && claude.use){
+    try{
+      const downloads = await claude.use("downloads");
+      if(downloads){ await downloads.save({ filename, data: blob }); usedClaudeDownload = true; }
+    }catch(err){ if(err && err.code === "declined"){ usedClaudeDownload = true; } }
   }
-});
+  if(!usedClaudeDownload){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+}
+function sheetOf(rows, widths){
+  const ws = XLSX.utils.json_to_sheet(rows);
+  if(widths) ws["!cols"] = widths.map(w=>({wch:w}));
+  return ws;
+}
+const testLabel = v => v==="complete" ? "Complete" : "Pending";
+function testRows(){
+  return state.students.map((s,i)=>({ "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
+    "Module Test": testLabel(mtOf(s)), "Interview": testLabel(ivOf(s)) }));
+}
+async function runExport(btn, label, fn){
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparing…";
+  try{ await fn(); toast(label); }
+  catch(e){ console.error(e); toast((e && e.message) ? e.message : "Export failed — check console"); }
+  finally{ btn.disabled = false; btn.textContent = old; }
+}
+
+// Full export (everything in one workbook)
+document.getElementById("exportBtn").addEventListener("click", ()=>runExport(document.getElementById("exportBtn"), "Excel file saved", async ()=>{
+  const wb = XLSX.utils.book_new();
+  const stuRows = state.students.map((s,i)=>({
+    "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
+    "Required Hours": s.hours, "Join Date": s.join||"" }));
+  XLSX.utils.book_append_sheet(wb, sheetOf(stuRows,[9,26,28,22,14,12]), "Students");
+
+  const logRows = [...state.logs].sort((a,b)=>a.date.localeCompare(b.date)).map(l=>({
+    "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
+    "Date": l.date, "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
+    "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
+  XLSX.utils.book_append_sheet(wb, sheetOf(logRows,[26,28,22,12,22,9,9,13]), "Daily Log");
+
+  const dashRows = state.students.map((s,i)=>{
+    const st = studentStats(s.enroll);
+    const comp = completionStats(s);
+    return { "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
+      "Week Hours": Number(fmt(st.week)), "Month Hours": Number(fmt(st.month)), "Total Hours": Number(fmt(st.total)),
+      "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)),
+      "Completion %": comp.pct===null ? "" : Math.round(comp.pct*100)/100 };
+  });
+  XLSX.utils.book_append_sheet(wb, sheetOf(dashRows,[9,26,28,22,11,12,11,14,15,13]), "Dashboard");
+  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Module Test & Interview");
+  await saveWorkbook(wb, `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`);
+}));
+
+// Check-in / check-out sheet only (optional date range)
+document.getElementById("logExportBtn").addEventListener("click", ()=>runExport(document.getElementById("logExportBtn"), "Check-in/out sheet saved", async ()=>{
+  const from = document.getElementById("logExpFrom").value;
+  const to = document.getElementById("logExpTo").value;
+  let logs = [...state.logs];
+  if(from) logs = logs.filter(l=>l.date >= from);
+  if(to) logs = logs.filter(l=>l.date <= to);
+  if(!logs.length){ throw new Error("No entries in this date range"); }
+  logs.sort((a,b)=>a.date.localeCompare(b.date) || (a.tin||"").localeCompare(b.tin||""));
+
+  const rows = logs.map((l,i)=>({
+    "Serial No": i+1, "Date": l.date, "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
+    "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
+    "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
+
+  const byStu = {};
+  logs.forEach(l=>{
+    const r = byStu[l.enroll] || (byStu[l.enroll] = { days:0, leave:0, hours:0 });
+    if(l.status==="leave") r.leave++; else r.days++;
+    r.hours += hoursOf(l);
+  });
+  const summary = Object.keys(byStu).sort().map((en,i)=>({
+    "Serial No": i+1, "Enroll No": en, "Student Name": nameFor(en), "Course Name": courseFor(en),
+    "Days Present": byStu[en].days, "Days Leave": byStu[en].leave, "Total Hours": Number(fmt(byStu[en].hours)) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheetOf(rows,[9,12,26,28,22,24,9,9,13]), "Check-In-Out");
+  XLSX.utils.book_append_sheet(wb, sheetOf(summary,[9,26,28,22,13,11,12]), "Summary per Student");
+  const range = (from||to) ? `${from||"start"}_to_${to||"today"}` : new Date().toISOString().slice(0,10);
+  await saveWorkbook(wb, `Check_In_Out_${range}.xlsx`);
+}));
+
+// Module test & interview sheet only
+document.getElementById("testExportBtn").addEventListener("click", ()=>runExport(document.getElementById("testExportBtn"), "Module test & interview sheet saved", async ()=>{
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Module Test & Interview");
+  await saveWorkbook(wb, `Module_Test_Interview_${new Date().toISOString().slice(0,10)}.xlsx`);
+}));
 
 // ---------- init ----------
 document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
