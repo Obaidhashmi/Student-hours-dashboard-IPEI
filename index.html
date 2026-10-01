@@ -180,7 +180,7 @@ tbody tr:hover{background:var(--surface2)}
       <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
       <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
       <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
-      <button class="navbtn" data-tab="tests"><span class="dot"></span>Module Test & Interview</button>
+      <button class="navbtn" data-tab="tests"><span class="dot"></span>Final Test & Interview</button>
       <button class="navbtn" data-tab="users" id="usersNavBtn"><span class="dot"></span>Users</button>
     </nav>
     <div class="topbar">
@@ -319,17 +319,17 @@ tbody tr:hover{background:var(--surface2)}
       </div>
     </section>
 
-    <!-- MODULE TEST & INTERVIEW -->
+    <!-- Final Test & INTERVIEW -->
     <section class="panel" id="tab-tests">
       <div class="cards" id="testCards"></div>
       <div class="section">
-        <div class="section-head"><h2>Module Test & Interview</h2><span class="hint">Set each student to Pending or Complete</span></div>
+        <div class="section-head"><h2>Final Test & Interview</h2><span class="hint">Set each student to Pending or Complete</span></div>
         <div class="filters">
           <input class="search" id="testSearch" placeholder="Search name, enroll no, course...">
           <select id="testFilter" style="max-width:240px">
             <option value="">All students</option>
-            <option value="mt-pending">Module Test — Pending</option>
-            <option value="mt-complete">Module Test — Complete</option>
+            <option value="mt-pending">Final Test — Pending</option>
+            <option value="mt-complete">Final Test — Complete</option>
             <option value="iv-pending">Interview — Pending</option>
             <option value="iv-complete">Interview — Complete</option>
           </select>
@@ -337,7 +337,7 @@ tbody tr:hover{background:var(--surface2)}
         </div>
         <div class="section-body">
           <div class="table-wrap"><table>
-            <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Module Test</th><th>Interview</th></tr></thead>
+            <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Final Test</th><th>Interview</th></tr></thead>
             <tbody id="testBody"></tbody>
           </table></div>
           <div class="pager" id="testPager"></div>
@@ -654,8 +654,8 @@ function renderTests(){
   const mtDone = state.students.filter(s=>mtOf(s)==="complete").length;
   const ivDone = state.students.filter(s=>ivOf(s)==="complete").length;
   document.getElementById("testCards").innerHTML = `
-    <div class="card"><div class="k">Module Test — Complete</div><div class="v">${mtDone} <span>/ ${n}</span></div></div>
-    <div class="card"><div class="k">Module Test — Pending</div><div class="v">${n-mtDone}</div></div>
+    <div class="card"><div class="k">Final Test — Complete</div><div class="v">${mtDone} <span>/ ${n}</span></div></div>
+    <div class="card"><div class="k">Final Test — Pending</div><div class="v">${n-mtDone}</div></div>
     <div class="card"><div class="k">Interview — Complete</div><div class="v">${ivDone} <span>/ ${n}</span></div></div>
     <div class="card"><div class="k">Interview — Pending</div><div class="v">${n-ivDone}</div></div>`;
   let rows = state.students.filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
@@ -741,7 +741,7 @@ function showStudentProfile(id){
           <div class="card"><div class="k">Total Hours</div><div class="v">${fmt(st.total)}</div></div>
           <div class="card"><div class="k">Remaining Hours</div><div class="v">${fmt(remaining)}</div></div>
           <div class="card"><div class="k">Completion</div><div class="v">${pctFmt(comp.pct)}</div></div>
-          <div class="card"><div class="k">Module Test</div><div class="v" style="font-size:16px"><span class="badge ${mtOf(s)==="complete"?"ok":"warn"}">${mtOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
+          <div class="card"><div class="k">Final Test</div><div class="v" style="font-size:16px"><span class="badge ${mtOf(s)==="complete"?"ok":"warn"}">${mtOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
           <div class="card"><div class="k">Interview</div><div class="v" style="font-size:16px"><span class="badge ${ivOf(s)==="complete"?"ok":"warn"}">${ivOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
         </div>
       </div>
@@ -1179,7 +1179,7 @@ function switchTab(tab){
     students:["Students","Add and manage student records"],
     log:["Daily Log","Record each check-in and check-out"],
     records:["Records","Browse and filter every logged entry"],
-    tests:["Module Test & Interview","Mark each student's module test and interview as Pending or Complete"],
+    tests:["Final Test & Interview","Mark each student's Final Test and interview as Pending or Complete"],
     users:["Users","Manage who can sign in to this dashboard"] };
   document.getElementById("pageTitle").textContent = titles[tab][0];
   document.getElementById("pageSub").textContent = titles[tab][1];
@@ -1226,7 +1226,7 @@ function sheetOf(rows, widths){
 const testLabel = v => v==="complete" ? "Complete" : "Pending";
 function testRows(){
   return state.students.map((s,i)=>({ "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-    "Module Test": testLabel(mtOf(s)), "Interview": testLabel(ivOf(s)) }));
+    "Final Test": testLabel(mtOf(s)), "Interview": testLabel(ivOf(s)) }));
 }
 async function runExport(btn, label, fn){
   const old = btn.textContent;
@@ -1259,7 +1259,7 @@ document.getElementById("exportBtn").addEventListener("click", ()=>runExport(doc
       "Completion %": comp.pct===null ? "" : Math.round(comp.pct*100)/100 };
   });
   XLSX.utils.book_append_sheet(wb, sheetOf(dashRows,[9,26,28,22,11,12,11,14,15,13]), "Dashboard");
-  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Module Test & Interview");
+  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Final Test & Interview");
   await saveWorkbook(wb, `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`);
 }));
 
@@ -1295,10 +1295,10 @@ document.getElementById("logExportBtn").addEventListener("click", ()=>runExport(
   await saveWorkbook(wb, `Check_In_Out_${range}.xlsx`);
 }));
 
-// Module test & interview sheet only
-document.getElementById("testExportBtn").addEventListener("click", ()=>runExport(document.getElementById("testExportBtn"), "Module test & interview sheet saved", async ()=>{
+// Final Test & interview sheet only
+document.getElementById("testExportBtn").addEventListener("click", ()=>runExport(document.getElementById("testExportBtn"), "Final Test & interview sheet saved", async ()=>{
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Module Test & Interview");
+  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Final Test & Interview");
   await saveWorkbook(wb, `Module_Test_Interview_${new Date().toISOString().slice(0,10)}.xlsx`);
 }));
 
