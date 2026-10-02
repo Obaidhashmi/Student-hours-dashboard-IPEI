@@ -1,1310 +1,282 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Student Hours Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<title>LeadDesk CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#f4f6f8; --surface:#ffffff; --surface2:#eef1f5; --border:#dde3ea;
-  --ink:#12203a; --ink-dim:#5b6b82; --accent:#0f6e5c; --accent-ink:#ffffff;
-  --amber:#b5750a; --red:#b23b3b; --green:#1f7a4d;
-  --shadow:0 1px 2px rgba(18,32,58,.06),0 4px 14px rgba(18,32,58,.06);
-  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0e1420; --surface:#151d2c; --surface2:#1b2536; --border:#2a3547;
-    --ink:#e8edf5; --ink-dim:#93a1b8; --accent:#2fae90; --accent-ink:#06140f;
-    --amber:#e0a439; --red:#e2695f; --green:#4fbf85;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.35);
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#0e1420; --surface:#151d2c; --surface2:#1b2536; --border:#2a3547;
-  --ink:#e8edf5; --ink-dim:#93a1b8; --accent:#2fae90; --accent-ink:#06140f;
-  --amber:#e0a439; --red:#e2695f; --green:#4fbf85;
-}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{
-  background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  font-size:14px; line-height:1.45;
-}
-.app{display:block; min-height:100vh}
-.brand{display:flex; align-items:center; gap:10px; margin-bottom:14px}
-.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
-.brand-name{font-weight:700; font-size:14.5px}
-.brand-sub{font-size:11.5px; color:var(--ink-dim)}
-
-.tabbar{
-  display:flex; gap:4px; overflow-x:auto; -webkit-overflow-scrolling:touch;
-  background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:5px;
-  margin-bottom:20px; position:sticky; top:calc(8px + env(safe-area-inset-top,0px)); z-index:20;
-  box-shadow:var(--shadow);
-}
-.navbtn{
-  display:flex; align-items:center; gap:7px; white-space:nowrap; padding:9px 14px; border-radius:8px;
-  background:transparent; border:none; color:var(--ink-dim); font-size:13.5px; font-weight:700; cursor:pointer; flex-shrink:0;
-}
-.navbtn:hover{background:var(--surface2); color:var(--ink)}
-.navbtn.active{background:var(--accent); color:var(--accent-ink)}
-.navbtn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}
-
-.main{padding:16px 18px 60px; padding-top:calc(16px + env(safe-area-inset-top,0px)); max-width:1180px; margin:0 auto}
-.topbar{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:20px; flex-wrap:wrap}
-.topbar h1{font-size:21px; margin:0 0 3px; letter-spacing:-.01em}
-.topbar p{margin:0; color:var(--ink-dim); font-size:13px}
-.actions{display:flex; gap:8px; flex-wrap:wrap}
-button{font-family:inherit; cursor:pointer}
-.btn{
-  border:1px solid var(--border); background:var(--surface); color:var(--ink); padding:8px 14px;
-  border-radius:8px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
-}
-.btn:hover{border-color:var(--accent)}
-.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
-.btn.primary:hover{filter:brightness(1.06)}
-.btn.danger{color:var(--red)}
-.btn.small{padding:5px 9px; font-size:12px}
-.btn:disabled{opacity:.45; cursor:not-allowed}
-
-.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; margin-bottom:20px}
-.card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow)}
-.card .k{font-size:11.5px; color:var(--ink-dim); font-weight:600; margin-bottom:6px}
-.card .v{font-size:23px; font-weight:700; letter-spacing:-.01em}
-.card .v span{font-size:12px; color:var(--ink-dim); font-weight:600}
-
-.panel{display:none}
-.panel.active{display:block}
-.section{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden}
-.section-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap}
-.section-head h2{font-size:15px; margin:0}
-.section-head .hint{font-size:12px; color:var(--ink-dim)}
-.section-body{padding:16px}
-
-form.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:end}
-.field{display:flex; flex-direction:column; gap:5px; min-width:0}
-.field label{font-size:11.5px; font-weight:600; color:var(--ink-dim)}
-input,select{
-  background:var(--surface2); border:1px solid var(--border); color:var(--ink); border-radius:7px;
-  padding:8px 9px; font-size:13px; font-family:inherit; width:100%;
-}
-input:focus,select:focus{outline:2px solid var(--accent); outline-offset:1px}
-
-.table-wrap{overflow-x:auto; border-radius:8px; border:1px solid var(--border)}
-table{width:100%; border-collapse:collapse; min-width:640px; font-size:13px}
-th{
-  background:var(--surface2); text-align:left; padding:9px 10px; font-size:11px; text-transform:none;
-  color:var(--ink-dim); font-weight:700; white-space:nowrap; border-bottom:1px solid var(--border);
-}
-td{padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap}
-tbody tr:last-child td{border-bottom:none}
-tbody tr:hover{background:var(--surface2)}
-.mono{font-variant-numeric:tabular-nums}
-.badge{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700}
-.badge.ok{background:rgba(31,122,77,.14); color:var(--green)}
-.badge.warn{background:rgba(181,117,10,.16); color:var(--amber)}
-.badge.leave{background:rgba(178,59,59,.14); color:var(--red)}
-.badge.pending{background:rgba(15,110,92,.14); color:var(--accent)}
-.rowactions{display:flex; gap:6px; flex-wrap:wrap}
-.type-toggle{display:flex; gap:6px}
-.type-toggle label{display:flex; align-items:center; gap:5px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:var(--surface2); font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-dim)}
-.type-toggle input{width:auto; margin:0}
-.type-toggle label.active{border-color:var(--accent); color:var(--ink); background:rgba(15,110,92,.08)}
-.recstats{padding:10px 16px; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--ink-dim)}
-.recstats strong{color:var(--ink)}
-.pager{display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; padding:12px 16px}
-.pager .info{font-size:12px; color:var(--ink-dim); margin:0 8px}
-.pager .btn.current{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
-.status-select{width:auto; min-width:120px; font-weight:700; padding:6px 8px}
-.status-select.complete{color:var(--green); border-color:var(--green)}
-.status-select.pending{color:var(--amber); border-color:var(--amber)}
-.empty{padding:26px; text-align:center; color:var(--ink-dim); font-size:13px}
-.search{max-width:260px}
-.filters{display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border)}
-.toast{
-  position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--ink); color:var(--bg);
-  padding:9px 16px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.2s;
-  z-index:50; max-width:90vw; text-align:center;
-}
-.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
-@media (max-width:600px){
-  .cards{grid-template-columns:repeat(2,1fr)}
-}
-.login-screen{
-  position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
-  padding:20px; z-index:100;
-}
-.login-card{
-  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:28px 26px;
-  width:100%; max-width:340px; box-shadow:var(--shadow); text-align:center;
-}
-.login-card .brand-mark{width:44px;height:44px;border-radius:11px;margin:0 auto 12px;font-size:18px}
-.login-card h1{font-size:18px; margin:0 0 4px}
-.login-card p{font-size:12.5px; color:var(--ink-dim); margin:0 0 18px}
-.login-card .field{text-align:left; margin-bottom:10px}
-.login-card .btn.primary{width:100%; justify-content:center; margin-top:6px}
-.login-error{color:var(--red); font-size:12.5px; min-height:16px; margin-top:8px}
-.pw-mask{font-family:monospace; letter-spacing:1px}
-</style>
-</head>
-<body>
-<div class="login-screen" id="loginScreen">
-  <div class="login-card">
-    <div class="brand-mark">SH</div>
-    <h1>Hours Dashboard</h1>
-    <p>Sign in to continue</p>
-    <form id="loginForm">
-      <div class="field"><label>Username</label><input id="loginUser" autocomplete="username" required></div>
-      <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
-      <button type="submit" class="btn primary">Sign in</button>
-      <div class="login-error" id="loginError"></div>
-    </form>
-  </div>
-</div>
-<div class="app" id="appRoot" style="display:none">
-  <main class="main">
-    <div class="brand">
-      <div class="brand-mark">SH</div>
-      <div>
-        <div class="brand-name">Hours Dashboard</div>
-        <div class="brand-sub" id="saveModeNote">Connecting…</div>
-      </div>
-    </div>
-    <nav class="tabbar" id="nav">
-      <button class="navbtn active" data-tab="dashboard"><span class="dot"></span>Dashboard</button>
-      <button class="navbtn" data-tab="search"><span class="dot"></span>Search</button>
-      <button class="navbtn" data-tab="students"><span class="dot"></span>Students</button>
-      <button class="navbtn" data-tab="log"><span class="dot"></span>Daily Log (In/Out)</button>
-      <button class="navbtn" data-tab="records"><span class="dot"></span>Records</button>
-      <button class="navbtn" data-tab="tests"><span class="dot"></span>Final Test & Interview</button>
-      <button class="navbtn" data-tab="users" id="usersNavBtn"><span class="dot"></span>Users</button>
-    </nav>
-    <div class="topbar">
-      <div>
-        <h1 id="pageTitle">Dashboard</h1>
-        <p id="pageSub">Week, month and total hours for every student</p>
-      </div>
-      <div class="actions">
-        <button class="btn" id="addStudentBtn">➕ Add Student</button>
-        <button class="btn" id="addLogBtn">🕒 Student In/Out</button>
-        <button class="btn" id="themeBtn">🌓 Theme</button>
-        <button class="btn primary" id="exportBtn">⬇ Export Excel</button>
-        <button class="btn danger" id="logoutBtn">🚪 Logout</button>
-      </div>
-    </div>
-
-    <!-- DASHBOARD -->
-    <section class="panel active" id="tab-dashboard">
-      <div class="cards" id="statCards"></div>
-      <div class="section">
-        <div class="section-head">
-          <h2>All students</h2>
-          <input class="search" id="dashSearch" placeholder="Search name, enroll no, course...">
-        </div>
-        <div class="section-body">
-          <div class="table-wrap"><table>
-            <thead><tr>
-              <th>#</th><th>Enroll No</th><th>Name</th><th>Course</th>
-              <th>Week Hrs</th><th>Month Hrs</th><th>Total Hrs</th><th>Required</th><th>Remaining</th><th>Completion %</th><th>Status</th>
-            </tr></thead>
-            <tbody id="dashBody"></tbody>
-          </table></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SEARCH -->
-    <section class="panel" id="tab-search">
-      <div class="section">
-        <div class="section-head"><h2>Find a student</h2><span class="hint">Search by Enroll No (roll number) or Name</span></div>
-        <div class="section-body">
-          <input class="search" id="searchInput" placeholder="Type Enroll No or Name..." style="max-width:360px">
-          <div id="searchSuggestions" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap"></div>
-        </div>
-      </div>
-      <div id="searchProfile"></div>
-    </section>
-
-    <!-- STUDENTS -->
-    <section class="panel" id="tab-students">
-      <div class="section">
-        <div class="section-head"><h2 id="stuFormTitle">Add student</h2><span class="hint">Serial No is automatic</span></div>
-        <div class="section-body">
-          <form class="grid" id="stuForm">
-            <input type="hidden" id="stuId">
-            <div class="field"><label>Enroll No</label><input id="stuEnroll" required placeholder="EN-1001"></div>
-            <div class="field"><label>Student Name</label><input id="stuName" required placeholder="Full name"></div>
-            <div class="field"><label>Course Name</label><input id="stuCourse" required placeholder="e.g. Web Development"></div>
-            <div class="field"><label>Required Hours</label><input id="stuHours" type="number" min="0" step="0.5" required placeholder="120"></div>
-            <div class="field"><label>Join Date</label><input id="stuJoin" type="date"></div>
-            <div class="field" style="flex-direction:row; gap:8px">
-              <button type="submit" class="btn primary">Save</button>
-              <button type="button" class="btn" id="stuCancel" style="display:none">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-head"><h2>Student list</h2><input class="search" id="stuSearch" placeholder="Search..."></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Required Hrs</th><th>Join Date</th><th>Actions</th></tr></thead>
-          <tbody id="stuBody"></tbody>
-        </table></div>
-      </div>
-    </section>
-
-    <!-- DAILY LOG -->
-    <section class="panel" id="tab-log">
-      <div class="section">
-        <div class="section-head"><h2 id="logFormTitle">Add check-in / check-out</h2><span class="hint">Check in now, check out later — or mark the day as Leave</span></div>
-        <div class="section-body">
-          <form class="grid" id="logForm">
-            <input type="hidden" id="logId">
-            <div class="field"><label>Student</label><select id="logEnroll" required></select></div>
-            <div class="field"><label>Date</label><input id="logDate" type="date" required></div>
-            <div class="field">
-              <label>Type</label>
-              <div class="type-toggle" id="logTypeToggle">
-                <label class="active" data-type="present"><input type="radio" name="logType" value="present" checked>Present</label>
-                <label data-type="leave"><input type="radio" name="logType" value="leave">Leave</label>
-              </div>
-            </div>
-            <div class="field" id="logInWrap"><label>Time In</label><input id="logIn" type="time"></div>
-            <div class="field" id="logOutWrap"><label>Time Out (optional)</label><input id="logOut" type="time"></div>
-            <div class="field" style="flex-direction:row; gap:8px">
-              <button type="submit" class="btn primary">Save entry</button>
-              <button type="button" class="btn" id="logCancel" style="display:none">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-head"><h2>Today's & recent entries</h2><span class="hint" id="logCount"></span></div>
-        <div class="filters">
-          <span style="font-size:12px; color:var(--ink-dim); align-self:center">Export check-in/out sheet (leave dates empty for all):</span>
-          <input type="date" id="logExpFrom" title="From date (optional)" style="max-width:160px">
-          <input type="date" id="logExpTo" title="To date (optional)" style="max-width:160px">
-          <button class="btn small primary" id="logExportBtn">⬇ Export Check-In/Out (Excel)</button>
-        </div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th><th>Actions</th></tr></thead>
-          <tbody id="logBody"></tbody>
-        </table></div>
-        <div class="pager" id="logPager"></div>
-      </div>
-    </section>
-
-    <!-- RECORDS -->
-    <section class="panel" id="tab-records">
-      <div class="section">
-        <div class="section-head"><h2>All records</h2><span class="hint">Filter and browse every logged entry</span></div>
-        <div class="filters">
-          <select id="recStudent"><option value="">All students</option></select>
-          <input type="date" id="recFrom" title="From date">
-          <input type="date" id="recTo" title="To date">
-          <button class="btn small" id="recReset">Reset filters</button>
-        </div>
-        <div class="recstats" id="recStats"></div>
-        <div class="section-body">
-          <div class="table-wrap"><table>
-            <thead><tr><th>Date</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
-            <tbody id="recBody"></tbody>
-          </table></div>
-          <div class="pager" id="recPager"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Final Test & INTERVIEW -->
-    <section class="panel" id="tab-tests">
-      <div class="cards" id="testCards"></div>
-      <div class="section">
-        <div class="section-head"><h2>Final Test & Interview</h2><span class="hint">Set each student to Pending or Complete</span></div>
-        <div class="filters">
-          <input class="search" id="testSearch" placeholder="Search name, enroll no, course...">
-          <select id="testFilter" style="max-width:240px">
-            <option value="">All students</option>
-            <option value="mt-pending">Final Test — Pending</option>
-            <option value="mt-complete">Final Test — Complete</option>
-            <option value="iv-pending">Interview — Pending</option>
-            <option value="iv-complete">Interview — Complete</option>
-          </select>
-          <button class="btn small primary" id="testExportBtn">⬇ Export (Excel)</button>
-        </div>
-        <div class="section-body">
-          <div class="table-wrap"><table>
-            <thead><tr><th>#</th><th>Enroll No</th><th>Name</th><th>Course</th><th>Final Test</th><th>Interview</th></tr></thead>
-            <tbody id="testBody"></tbody>
-          </table></div>
-          <div class="pager" id="testPager"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- USERS -->
-    <section class="panel" id="tab-users">
-      <div class="section">
-        <div class="section-head"><h2 id="userFormTitle">Add login user</h2><span class="hint">Anyone in this list can sign in to this dashboard</span></div>
-        <div class="section-body">
-          <form class="grid" id="userForm">
-            <input type="hidden" id="userId">
-            <div class="field"><label>Username</label><input id="userName" required placeholder="Admin"></div>
-            <div class="field"><label>Password</label><input id="userPass" required placeholder="Set a password"></div>
-            <div class="field" style="flex-direction:row; gap:8px">
-              <button type="submit" class="btn primary">Save</button>
-              <button type="button" class="btn" id="userCancel" style="display:none">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-head"><h2>Login users</h2></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Username</th><th>Password</th><th>Actions</th></tr></thead>
-          <tbody id="userBody"></tbody>
-        </table></div>
-      </div>
-    </section>
-  </main>
-</div>
-<div class="toast" id="toast"></div>
-
+:root{--bg:#f3f5f6;--card:#fff;--ink:#14232b;--mut:#66767e;--line:#dfe5e8;--side:#2b3a47;--acc:#0b5f58;--chart:#ff7a59;--hot:#e0492f;--warm:#d98a12;--cold:#3b7dd8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e161a;--card:#172329;--ink:#e8eef0;--mut:#8fa1a9;--line:#263740;--side:#0a1114}}
+:root[data-theme="dark"]{--bg:#0e161a;--card:#172329;--ink:#e8eef0;--mut:#8fa1a9;--line:#263740;--side:#0a1114}
+*{box-sizing:inherit}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 'DM Sans',system-ui,sans-serif;display:flex;min-height:100vh}
+aside{width:224px;background:var(--side);color:#cfdadf;padding:20px 12px;position:sticky;top:0;height:100vh;overflow:auto;flex-shrink:0}
+aside h1{font-size:19px;color:#fff;margin:0 8px 20px;font-weight:700}
+aside button.nav{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;color:inherit;font:inherit;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
+aside button.nav:hover{background:#ffffff14}aside button.nav.on{background:#ffffff26;color:#fff;font-weight:500}.kan{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:12px}.col{background:var(--bg);border:1px solid var(--line);border-radius:10px;min-width:230px;width:230px;padding:10px;min-height:220px;flex-shrink:0}.ch{display:flex;justify-content:space-between;margin-bottom:8px}.kc{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;cursor:grab;font-size:14px}
+aside small{display:block;margin:18px 10px 6px;color:#7f939b;font-size:12px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+main{flex:1;min-width:0;padding:24px 28px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+h2{margin:0;font-size:24px}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:500;cursor:pointer}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.del{background:none;color:var(--hot);padding:4px 8px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stat b{font-size:28px;display:block;line-height:1.1}.stat span{color:var(--mut);font-size:13px}
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+.bar{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:14px}
+.bar i{display:block;height:10px;border-radius:5px;min-width:4px}.bar em{font-style:normal;color:var(--mut);margin-left:auto}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+input,select,textarea{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.tools input{max-width:260px}.tools select{width:auto}
+.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:720px}
+th{text-align:left;font-size:13px;color:var(--mut);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr.r{cursor:pointer}tr.r:hover td{background:#0f8b8d12}
+.tag{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:500;color:#fff}
+.t-Hot{background:var(--hot)}.t-Warm{background:var(--warm)}.t-Cold{background:var(--cold)}
+.mut{color:var(--mut);font-size:13px}.empty{padding:36px;text-align:center;color:var(--mut)}
+.modal{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.show{display:flex}.box{background:var(--card);border-radius:14px;padding:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto}
+.box h3{margin:0 0 14px}.f{display:grid;grid-template-columns:1fr 1fr;gap:12px}.f label{font-size:13px;color:var(--mut);display:block}.f .full{grid-column:1/-1}
+.act{display:flex;justify-content:space-between;margin-top:16px;gap:8px}
+.menu{display:none}
+@media(max-width:820px){body{flex-direction:column}aside{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px;padding:10px}aside h1,aside small{display:none}aside button.nav{width:auto;padding:7px 10px}main{padding:16px}.two{grid-template-columns:1fr}.f{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:2px 10px;border-radius:5px;font-weight:700;color:#fff;font-size:13px}.kc b{color:var(--acc)}.kc div{margin-top:4px}.kf{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;font-size:13px}.dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}.dg h3{margin:0 0 8px;color:var(--acc);font-size:16px}.vb{display:flex;align-items:flex-end;gap:10px;height:160px;padding-top:8px}.vb div{flex:1;text-align:center;font-size:12px}.vb i{display:block;border-radius:4px 4px 0 0;margin-bottom:4px}.pre{display:flex;gap:8px;flex-wrap:wrap}input[type=color]{height:38px;padding:2px}
+.sel{border-color:var(--acc);color:var(--acc);font-weight:700}.srow{display:grid;grid-template-columns:170px 1fr auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}.srow label.btn{display:inline-block}@media(max-width:820px){.srow{grid-template-columns:1fr}}
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head><body>
+<aside id="side"></aside>
+<main id="main"></main>
+<div id="lg" style="position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20;padding:16px"><div class="card" style="width:340px;max-width:100%"><h2 style="margin:0 0 4px">LeadDesk</h2><div class="mut" style="margin-bottom:14px">Sign in to continue</div><label class="mut">Username</label><input id="lu" autocomplete="username"><label class="mut" style="display:block;margin-top:10px">Password</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><div id="le" style="color:var(--hot);min-height:24px;margin:6px 0"></div><button class="btn" style="width:100%" onclick="doLogin()">Sign in</button></div></div>
+<div class="modal" id="modal"><div class="box" id="box"></div></div>
 <script>
-"use strict";
-const STORE_KEY = "shd_data_v1";
-const USERS_KEY = "shd_users_v1";
-const AUTH_KEY = "shd_auth_user";
-let state = { students: [], logs: [], users: [] };
-let currentUsername = null;
+const SRC={Meta:'#1877f2',WhatsApp:'#25a244',Facebook:'#3b5998',LinkedIn:'#0a66c2',Instagram:'#d6249f',Website:'#0f8b8d',Other:'#8a97a0'};
+const STAGES=['New','Contacted','Qualified','Proposal','Won','Lost'];
+const TEMPS=['Hot','Warm','Cold'];
+const SC={New:'#0a7cff',Contacted:'#e0a10c',Qualified:'#8a5cf6',Proposal:'#d9480f',Won:'#12a150',Lost:'#6b7780'},PR={New:.1,Contacted:.3,Qualified:.6,Proposal:.8,Won:1,Lost:0};
+const CO=['Nova Tech','Bilal Corp','Studio IO','Shop PK','Brand Co','Firm PK','Agency PK','Startup Inc'],AM=[1200,800,2500,400,3000,600,5000,900];
+const CATS={'Reliability & Quality':['CMRP','CRE','CRL','Six Sigma Black Belt'],'Industrial Automation':['ASE','PMT'],'ETAP Family':['ETAP','ETAP Advance','Power System Protection with ETAP'],'Power Equipment':['Substation Design','Transformer Life Cycle Maintenance'],'Power Systems Software':['DIgSILENT PowerFactory','HVDC','PSCAD','PLS-CADD','PSS/E'],'Primavera':['Primavera P6'],'Cyber Security':['Cyber Security','OT & Industrial Cyber Security']};
+const COURSES=Object.values(CATS).flat();
+const ALI=[[/power system protection/i,'Power System Protection with ETAP'],[/etap\s*advance/i,'ETAP Advance'],[/\betap\b/i,'ETAP'],[/\bcmrp\b|certified maintenance/i,'CMRP'],[/\bcre\b|certified reliability engineer/i,'CRE'],[/\bcrl\b|reliability leader/i,'CRL'],[/six\s*sigma/i,'Six Sigma Black Belt'],[/\base\b|automation system engineer/i,'ASE'],[/\bpmt\b/i,'PMT'],[/substation/i,'Substation Design'],[/transformer/i,'Transformer Life Cycle Maintenance'],[/digsilent|power\s*factory/i,'DIgSILENT PowerFactory'],[/\bhvdc\b/i,'HVDC'],[/\bpscad\b/i,'PSCAD'],[/pls[-\s]?cadd/i,'PLS-CADD'],[/\bpss\/?e\b/i,'PSS/E'],[/primavera|\bp6\b/i,'Primavera P6'],[/\bot\b.{0,25}(cyber|industrial)|industrial\s*cyber|certification in ot\b/i,'OT & Industrial Cyber Security'],[/cyber\s*security|cybersecurity|\bcyber\b/i,'Cyber Security']];
+const pd=t=>{const m=String(t||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0};
+const xv=(o,sub)=>{o=o||{};const k=Object.keys(o).find(x=>x.toLowerCase().includes(sub));return k?o[k]:''};
+function courseOf(r,k){const m=t=>{t=String(t||'');for(const a of ALI)if(a[0].test(t))return a[1];return ''};const c=k>=0?String(r[k]||'').trim():'';return m(c)||m(r.join(' '))||((c.length>2&&!/^(yes|no|true|false|n\/a)$/i.test(c))?c:'')}
+const usd=n=>'PKR '+Number(n||0).toLocaleString();
+const PRE=[['#0b5f58','#2b3a47','#ff7a59','HubSpot'],['#5b3fd1','#231b3d','#8b6cf0','Purple'],['#1f6feb','#0f2540','#3aa0ff','Blue'],['#c2410c','#2a1d16','#f59e0b','Sunset']];
+const WN=[['stats','Key numbers'],['newc','New contacts'],['time','Contacts over time'],['sources','Contact sources'],['stages','Deals by stage'],['course','Leads by course'],['applicant','Applicant type'],['exp','Experience'],['step','Current step']];
+let leads=[],view='dashboard',filt={q:'',src:'',temp:'',stage:''};
+const seed=()=>[
+['Ayesha Khan','+92 300 1234567','ayesha@mail.com','Meta','Hot','Qualified','Asked for pricing on the premium package'],
+['Bilal Ahmed','+92 321 7654321','bilal@corp.pk','WhatsApp','Hot','Contacted','Wants a demo this week'],
+['Sara Malik','sara@studio.io','sara@studio.io','LinkedIn','Warm','New','Connected after webinar'],
+['Usman Tariq','+92 333 9988776','usman@shop.pk','Instagram','Cold','New','Replied to story, no follow up yet'],
+['Hina Raza','+92 345 1122334','hina@brand.com','Facebook','Warm','Proposal','Proposal sent, waiting on approval'],
+['Ali Hassan','+92 302 5566778','ali@firm.pk','Meta','Cold','Lost','Budget too low'],
+['Noor Fatima','+92 311 4433221','noor@agency.pk','WhatsApp','Hot','Won','Signed 6-month plan'],
+['Zain Abbas','zain@startup.com','zain@startup.com','Website','Warm','Contacted','Filled contact form']
+].map((a,i)=>({id:'s'+i,name:a[0],phone:a[1],email:a[2],source:a[3],temp:a[4],stage:a[5],notes:a[6],created:Date.now()-i*864e5*1.5,company:CO[i],amount:AM[i],close:''}));
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'null')||d}catch(e){return d}};leads=ld('leaddesk2',seed());let tasks=ld('ld_t',[{id:'t1',title:'Call Bilal about the demo',due:'',done:false},{id:'t2',title:'Send proposal to Hina',due:'',done:false}]),log=ld('ld_l',[]),users=ld('ld_u',[]),delk=ld('ld_x',[]),me=(()=>{try{return JSON.parse(sessionStorage.getItem('ld_me')||'null')}catch(e){return null}})(),sheets=ld('ld_s',{}),theme=ld('ld_th',{acc:'#0b5f58',side:'#2b3a47',chart:'#ff7a59',hide:[]});
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};const save=()=>{sv('leaddesk2',leads);sv('ld_t',tasks);sv('ld_l',log)};const saveT=()=>sv('ld_th',theme);const applyTheme=()=>{const e=document.documentElement;if(theme.mode&&theme.mode!=='system')e.dataset.theme=theme.mode;else delete e.dataset.theme;const z=e.style;z.setProperty('--acc',theme.acc);z.setProperty('--side',theme.side);z.setProperty('--chart',theme.chart)};const plog=x=>{log.unshift({t:Date.now(),x});log=log.slice(0,60)};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+const fmt=t=>new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function fmt(n){ return (Math.round(n*100)/100).toFixed(2); }
-function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.classList.add("show");
-  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
-}
-function errMsg(e){
-  return (e && (e.message || e.error_description || e.details || e.hint)) || (typeof e === "string" ? e : JSON.stringify(e)) || "Unknown error";
-}
-function isAdmin(){ return currentUsername === "Admin"; }
+function nav(v,extra){sel.clear();view=v;filt={q:'',src:'',temp:'',stage:'',...extra};render()}
+function side(){
+ const n=(v,label,x,dot)=>`<button class="nav ${view===v&&JSON.stringify(x||{})===JSON.stringify(cur)?'on':''}" onclick='nav("${v}",${JSON.stringify(x||{})})'>${dot?`<span class="dot" style="background:${dot}"></span>`:''}${label}</button>`;
+ $('side').innerHTML=`<h1>LeadDesk</h1>${n('dashboard','Dashboard')}${n('contacts','Contacts')}${n('sheetdata','Sheet data')}${isA()?n('companies','Companies'):''}${n('pipeline','Deals')}${n('tasks','Tasks')}${n('feed','Activity feed')}
+ <small>Lead temperature</small>${n('contacts','Hot leads',{temp:'Hot'},'var(--hot)')}${n('contacts','Warm leads',{temp:'Warm'},'var(--warm)')}${n('contacts','Cold leads',{temp:'Cold'},'var(--cold)')}
+ <small>Sources</small>${Object.keys(SRC).map(s=>n('contacts',s,{src:s},SRC[s])).join('')}${isA()?'<small>Workspace</small>'+n('settings','Settings')+n('users','Users'):''}<small>Signed in: ${esc(me.name)}</small><button class="nav" onclick="logout()">Log out</button>`}
+let cur={};
+function render(){if(!me)return;if(!isA()&&['settings','users','companies'].includes(view))view='dashboard';cur={};if(view==='contacts'){['q','src','temp','stage'].forEach(k=>{if(filt[k]&&k!=='q')cur[k]=filt[k]})}side();({dashboard:dash,pipeline:pipe,companies:comp,tasks:tasksV,feed:feedV,settings:setV,sheetdata:sheetV,users:usersV}[view]||list)()}
 
-// ====== SUPABASE CONFIG — paste your project's values here, then re-upload this file ======
-const SUPABASE_URL = "https://tfszareafqwjnzksgwea.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_Y3uX8l8L2HXUVoiQrBSWfA_kmT3wvSI";
-// ============================================================================================
+function dash(){const leads=vis();
+ const c=f=>leads.filter(f).length,tot=leads.length,won=c(l=>l.stage==='Won');
+ const n=new Date(),m0=new Date(n.getFullYear(),n.getMonth(),1).getTime(),p0=new Date(n.getFullYear(),n.getMonth()-1,1).getTime();
+ const nm=c(l=>l.created>=m0),pm=c(l=>l.created>=p0&&l.created<m0);
+ const open=leads.filter(l=>l.stage!=='Won'&&l.stage!=='Lost').reduce((a,l)=>a+(+l.amount||0),0);
+ const days=[...Array(14)].map((_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-13+i);return d.getTime()});
+ const cnt=days.map(t=>leads.filter(l=>l.created>=t&&l.created<t+864e5).length),mx=Math.max(1,...cnt);
+ const xy=cnt.map((v,i)=>[10+i*280/13,90-v/mx*75]);
+ const smx=Math.max(1,...Object.keys(SRC).map(x=>c(l=>l.source===x)));
+ const st=(v,t,col)=>`<div class="card stat"><b ${col?`style="color:${col}"`:''}>${v}</b><span>${t}</span></div>`;
+ const W={
+ stats:`<div class="grid" style="grid-column:1/-1;margin:0">${st(tot,'Total leads')}${st(c(l=>l.temp==='Hot'),'Hot leads','var(--hot)')}${st(usd(open),'Open deal value')}${st(tot?Math.round(won/tot*100)+'%':'0%','Win rate')}${st(tasks.filter(t=>!t.done).length,'Open tasks')}${st(c(l=>/^y/i.test(xv(l.extra,'price'))),'Price confirmed','var(--acc)')}${st(c(l=>/^y/i.test(xv(l.extra,'csr'))),'CSR requested')}</div>`,
+ newc:`<div class="card"><h3>New contacts created</h3><div class="mut">This month, compared to last month (${pm})</div><b style="font-size:44px;color:var(--acc)">${nm}</b></div>`,
+ time:`<div class="card"><h3>Contacts added over time</h3><div class="mut">Last 14 days</div><svg viewBox="0 0 300 100" style="width:100%"><polyline fill="none" stroke="var(--chart)" stroke-width="2.5" points="${xy.map(p=>p.join(',')).join(' ')}"/>${xy.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="var(--chart)"/>`).join('')}</svg></div>`,
+ sources:`<div class="card"><h3>Contact sources</h3><div class="vb">${Object.keys(SRC).map(x=>{const k=c(l=>l.source===x);return `<div><i style="height:${k/smx*110+2}px;background:${SRC[x]}"></i>${k}<br>${x}</div>`}).join('')}</div></div>`,
+ stages:`<div class="card"><h3>Deals by stage</h3>${STAGES.map(x=>{const r=leads.filter(l=>l.stage===x);return `<div class="bar"><span class="pill" style="background:${SC[x]};width:92px;text-align:center">${x}</span><i style="width:${r.length/Math.max(1,tot)*45}%;background:${SC[x]}"></i><em>${r.length}, ${usd(r.reduce((a,l)=>a+(+l.amount||0),0))}</em></div>`}).join('')}</div>`};
+ const bw=(t,fn)=>{const cc={};leads.forEach(l=>{const k=fn(l)||'Not set';cc[k]=(cc[k]||0)+1});const cs=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8),m=Math.max(1,...cs.map(x=>x[1]));return `<div class="card"><h3>${t}</h3>${cs.map(x=>`<div class="bar"><span style="width:150px;font-size:13px">${esc(x[0])}</span><i style="width:${x[1]/m*35}%;background:var(--chart)"></i><em>${x[1]}</em></div>`).join('')}</div>`};
+ W.course=bw('Leads by course',l=>l.course);W.applicant=bw('Applicant type',l=>xv(l.extra,'applicant'));W.exp=bw('Experience',l=>xv(l.extra,'experience'));W.step=bw('Current step',l=>xv(l.extra,'current step'));
+ $('main').innerHTML=`<div class="top"><h2>CRM overview</h2><div><button class="btn ghost" onclick="tgl()">${dark()?'Light mode':'Dark mode'}</button> <button class="btn" onclick="edit()">Add lead</button></div></div><div class="dg">${Object.keys(W).filter(k=>!theme.hide.includes(k)).map(k=>W[k]).join('')}</div>`}
+function custom(){
+ $('box').innerHTML=`<h3>Customize dashboard</h3><div class="f"><div><label>Buttons and accent</label><input type="color" value="${theme.acc}" oninput="th('acc',this.value)"></div><div><label>Sidebar</label><input type="color" value="${theme.side}" oninput="th('side',this.value)"></div><div><label>Chart color</label><input type="color" value="${theme.chart}" oninput="th('chart',this.value)"></div><div></div>
+ <div class="full"><label>Presets</label><div class="pre">${PRE.map((p,i)=>`<button class="btn ghost" onclick="preset(${i})"><span class="dot" style="background:${p[0]}"></span> ${p[3]}</button>`).join('')}</div></div>
+ <div class="full"><label>Show widgets</label>${WN.map(w=>`<label style="color:var(--ink);display:block"><input type="checkbox" style="width:auto" ${theme.hide.includes(w[0])?'':'checked'} onchange="tw('${w[0]}')"> ${w[1]}</label>`).join('')}</div></div><div class="act"><button class="btn ghost" onclick="preset(0)">Reset colors</button><button class="btn" onclick="closeM();render()">Done</button></div>`;
+ $('modal').classList.add('show')}
+function th(k,v){theme[k]=v;applyTheme();saveT()}
+function preset(i){theme.acc=PRE[i][0];theme.side=PRE[i][1];theme.chart=PRE[i][2];applyTheme();saveT();setV()}
+function tw(k){const h=theme.hide;h.includes(k)?h.splice(h.indexOf(k),1):h.push(k);saveT()}
+function md(m){theme.mode=m;applyTheme();saveT();setV()}
+const urls=k=>{const z=sheets[k]=sheets[k]||{};if(!z.urls)z.urls=z.url?[z.url]:[];return z.urls};
+function sl(k,i,v){localStorage.setItem('ld_d','1');urls(k)[i]=v;sv('ld_s',sheets)}
+function addS(k){localStorage.setItem('ld_d','1');const L=urls(k);if(!L.length)L.push('');L.push('');sv('ld_s',sheets);setV()}
+function rmS(k,i){localStorage.setItem('ld_d','1');urls(k).splice(i,1);sv('ld_s',sheets);setV()}
+function openS(k){const u=urls(k).find(x=>x);if(u)window.open(u,'_blank','noopener')}
+function setV(){
+ const m=theme.mode||'system',lbl='style="color:var(--ink);display:block"';
+ const col=(k,t)=>`<div><label>${t}</label><input type="color" value="${theme[k]}" oninput="th('${k}',this.value)"></div>`;
+ $('main').innerHTML=`<div class="top"><h2>Settings</h2></div>
+ <div class="card" style="margin-bottom:14px"><h3 style="margin-top:0">Appearance</h3><div class="pre" style="margin-bottom:14px">${['light','dark','system'].map(x=>`<button class="btn ghost ${m===x?'sel':''}" onclick="md('${x}')">${x[0].toUpperCase()+x.slice(1)} mode</button>`).join('')}</div>
+ <div class="f">${col('acc','Buttons and accent')}${col('side','Sidebar')}${col('chart','Chart color')}<div></div>
+ <div class="full"><label>Color presets</label><div class="pre">${PRE.map((p,i)=>`<button class="btn ghost" onclick="preset(${i})"><span class="dot" style="background:${p[0]}"></span> ${p[3]}</button>`).join('')}</div></div>
+ <div class="full"><label>Dashboard widgets</label>${WN.map(w=>`<label ${lbl}><input type="checkbox" style="width:auto" ${theme.hide.includes(w[0])?'':'checked'} onchange="tw('${w[0]}')"> ${w[1]}</label>`).join('')}</div></div></div>
+ <div class="card"><h3 style="margin-top:0">Lead sheets</h3><div class="mut" style="margin-bottom:8px">Paste each source's Google Sheet link and share the sheet as "Anyone with the link can view". This page checks every link when it opens and every 5 minutes while it stays open, and adds new leads. You can also press Add sheets to upload CSV or Excel files by hand. Leads with a phone or email already in the CRM are skipped. <button class="btn" onclick="syncAll()">Sync all now</button><div class="mut" style="margin-top:8px">Deleted leads stay hidden from sync (${delk.length} saved). <button class="btn ghost" onclick="delk=[];sv('ld_x',delk);setV()">Allow them to sync back</button></div></div>
+ ${Object.keys(SRC).map(k=>{const z=sheets[k]||{};return `<div class="srow"><div><span class="dot" style="background:${SRC[k]}"></span> <b>${k}</b><div class="mut">${z.at?`Last import: ${z.n} added, ${z.skip} skipped, ${fmt(z.at)}`:'Not imported yet'}${z.chk?', checked '+new Date(z.chk).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):''}</div>${z.err?`<div style="color:var(--hot);font-size:13px">${z.err}</div>`:''}</div><div>${(urls(k).length?urls(k):['']).map((u,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px"><input placeholder="Paste Google Sheet link ${i+1}" value="${esc(u)}" oninput="sl('${k}',${i},this.value)"><button class="btn del" onclick="rmS('${k}',${i})">Remove</button></div>`).join('')}<button class="btn ghost" onclick="addS('${k}')">Add another sheet link</button></div><div><button class="btn ghost" onclick="openS('${k}')">Open sheet</button> <button class="btn ghost" onclick="syncOne('${k}').then(()=>setV())">Sync now</button> <label class="btn">Add sheets<input type="file" multiple accept=".csv,.xlsx,.xls,text/csv" hidden onchange="impFiles('${k}',this)"></label></div></div>`}).join('')}</div>`}
+function parseCSV(t){const R=[];let r=[],c='',q=false;for(let i=0;i<t.length;i++){const h=t[i];if(q){if(h==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=h}else if(h==='"')q=true;else if(h===','){r.push(c);c=''}else if(h==='\n'||h==='\r'){if(h==='\r'&&t[i+1]==='\n')i++;r.push(c);R.push(r);r=[];c=''}else c+=h}if(c||r.length){r.push(c);R.push(r)}return R.filter(x=>x.some(y=>y.trim()))}
+function ingest(src,text,quiet){
+ const rows=parseCSV(String(text).replace(/^\uFEFF/,''));const hd=rows.shift()||[];const h=hd.map(x=>String(x).toLowerCase().trim());
+ const ix=(...k)=>h.findIndex(x=>k.some(y=>x.includes(y)));
+ const pk=(...z)=>{for(const w of z){let i=h.findIndex(x=>x===w);if(i<0)i=h.findIndex(x=>x.includes(w)&&!x.includes('selected'));if(i>=0)return i}return -1};const I={n:ix('name'),p:ix('phone','whatsapp','mobile'),e:ix('email'),c:ix('company'),a:ix('amount','fee','value'),g:ix('stage'),t:ix('temp'),o:ix('note','message'),k:pk('course','program','training'),d:ix('date')};
+ const g=(r,k)=>I[k]>=0?(r[I[k]]||'').trim():'',dig=x=>String(x).replace(/\D/g,'');let add=0,skip=0,upd=0;
+ rows.forEach(r=>{const name=g(r,'n')||g(r,'e')||g(r,'p');if(!name)return;const p=g(r,'p'),e=g(r,'e').toLowerCase();
+  const crs=courseOf(r,I.k),xt={},dt=pd(g(r,'d')),amt=+g(r,'a').replace(/[^\d.]/g,'')||0;hd.forEach((c,i)=>{const v=String(r[i]||'').trim();if(v)xt[String(c).trim()]=v});
+  const hot=/^y/i.test(xv(xt,'csr'))||/^y/i.test(xv(xt,'price'));
+  if((dig(p)&&delk.includes(dig(p)))||(e&&delk.includes(e))){skip++;return}
+  const ex=leads.find(l=>(dig(p)&&dig(l.phone)===dig(p))||(e&&String(l.email).toLowerCase()===e));
+  if(ex){let ch=0;if(crs&&ex.course!==crs){ex.course=crs;ch=1}else if(!crs&&/^(yes|no)$/i.test(ex.course||'')){ex.course='';ch=1}if(JSON.stringify(ex.extra||{})!==JSON.stringify(xt)){ex.extra=xt;ch=1}if(dt&&ex.created!==dt){ex.created=dt;ch=1}if(amt&&!ex.amount){ex.amount=amt;ch=1}if(hot&&ex.temp==='Warm'){ex.temp='Hot';ch=1}ch?upd++:skip++;return}
+  const pick=(A,v,d)=>A.find(x=>x.toLowerCase()===v.toLowerCase())||d;
+  leads.unshift({id:'i'+Date.now()+'_'+add,name,phone:p,email:e,source:src,temp:pick(TEMPS,g(r,'t'),hot?'Hot':'Warm'),stage:pick(STAGES,g(r,'g'),'New'),notes:g(r,'o'),company:g(r,'c'),course:crs,amount:+g(r,'a').replace(/[^\d.]/g,'')||0,close:'',created:dt||Date.now(),extra:xt});add++});
+ if(add||upd||!quiet){sheets[src]={...(sheets[src]||{}),at:Date.now(),n:add,skip,err:''};plog('Imported '+add+' '+src+' leads, '+upd+' updated with course, '+skip+' skipped')}
+ (sheets[src]=sheets[src]||{}).chk=Date.now();sv('ld_s',sheets);save();if(!quiet||add||upd)render();return add}
+async function impFiles(src,inp){for(const f of [...inp.files]){try{
+ if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX)throw 0;const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});for(const nm of wb.SheetNames)ingest(src,XLSX.utils.sheet_to_csv(wb.Sheets[nm]))}
+ else ingest(src,await f.text())}catch(e){(sheets[src]=sheets[src]||{}).err='Could not read '+f.name+'. Use a CSV or Excel file.'}}
+ sv('ld_s',sheets);inp.value='';setV()}
+function impCSV(src,inp){const f=inp.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{ingest(src,fr.result)};fr.readAsText(f)}
+const gurl=u=>{u=(u||'').trim();const m=u.match(/\/d\/([\w-]+)/);if(!m||/output=csv|\/pub|gviz|export\?/.test(u))return u;const g=u.match(/gid=(\d+)/);return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(g?'&gid='+g[1]:'')};
+async function syncOne(k,quiet){let t=0;for(const raw of urls(k)){const u=gurl(raw);if(!u)continue;
+ try{const r=await fetch(u);if(!r.ok)throw 0;const x=await r.text();if(/^\s*<(!doctype|html)/i.test(x))throw 0;t+=ingest(k,x,quiet)}
+ catch(e){(sheets[k]=sheets[k]||{}).err='Could not read one of these sheets. Share it with anyone who has the link, or publish it to the web as CSV.';sv('ld_s',sheets)}}return t}
+async function syncAll(quiet){let t=0;for(const k of Object.keys(SRC))t+=await syncOne(k,quiet);if(!quiet)render();return t}
+setInterval(()=>syncAll(true),300000);
+let sf={q:'',src:'',course:'',price:'',csr:'',days:0};
+const PRI=['date','phone','program','applicant','experience','fee','price','csr','current step','selected'];
+const yes=l=>k=>/^y/i.test(xv(l.extra,k));
+function sheetRows(){const leads=vis();const q=sf.q.toLowerCase(),now=Date.now();
+ return leads.filter(l=>l.extra&&(!sf.src||l.source===sf.src)&&(!sf.course||l.course===sf.course)&&(!sf.price||yes(l)('price')===(sf.price==='Yes'))&&(!sf.csr||yes(l)('csr')===(sf.csr==='Yes'))&&(!sf.days||l.created>=now-sf.days*864e5)&&(!q||(l.name+' '+l.phone+' '+Object.values(l.extra).join(' ')).toLowerCase().includes(q))).sort((a,b)=>b.created-a.created)}
+const SCOLS=[['Date',['date']],['Number',['phone','number','whatsapp']],['Program',['program']],['Applicant Type',['applicant']],['Experience',['experience']],['Fee',['fee']],['Price Confirmed',['price']],['CSR Requested',['csr']],['Selected Program',['selected']]];
+function cell(l,subs,label){const ks=Object.keys(l.extra||{});let k=ks.find(x=>subs.includes(x.toLowerCase().trim()));if(!k)k=ks.find(x=>{const y=x.toLowerCase();return subs.some(z=>y.includes(z))&&!(label==='Program'&&y.includes('selected'))});let v=k?l.extra[k]:'';if(label==='Program'&&!v)v=l.course||'';return v}
+function sheetBody(){const rows=sheetRows();$('sc').textContent='('+rows.length+')';
+ $('sb').innerHTML=rows.length?`<table style="min-width:1100px"><tr>${SCOLS.map(c=>`<th>${c[0]}</th>`).join('')}</tr>${rows.slice(0,500).map(l=>`<tr class="r" onclick="edit('${l.id}')">${SCOLS.map(c=>`<td>${esc(cell(l,c[1],c[0]))}</td>`).join('')}</tr>`).join('')}</table>`:'<div class="empty">No sheet leads match. Sync a sheet in Settings, or clear a filter.</div>'}
+function sheetCsv(){const rows=sheetRows(),q=x=>'"'+String(x||'').replace(/"/g,'""')+'"';
+ const t=[SCOLS.map(c=>q(c[0])).join(',')].concat(rows.map(l=>SCOLS.map(c=>q(cell(l,c[1],c[0]))).join(','))).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='sheet-data.csv';a.click()}
+function sheetV(){const leads=vis();
+ const all=leads.filter(l=>l.extra),now=Date.now(),day=new Date().setHours(0,0,0,0);
+ const st=(v,t)=>`<div class="card stat"><b>${v}</b><span>${t}</span></div>`;
+ const opt=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+ const yn=(k,t)=>`<select onchange="sf.${k}=this.value;sheetBody()"><option value="">${t}: any</option><option value="Yes" ${sf[k]==='Yes'?'selected':''}>${t}: Yes</option><option value="No" ${sf[k]==='No'?'selected':''}>${t}: No</option></select>`;
+ $('main').innerHTML=`<div class="top"><h2>Sheet data <span class="mut" id="sc"></span></h2>${isA()?'<button class="btn ghost" onclick="sheetCsv()">Export CSV</button>':''}</div>
+ <div class="grid">${st(all.length,'Leads from sheets')}${st(all.filter(l=>l.created>=day).length,'Came in today')}${st(all.filter(l=>l.created>=now-7*864e5).length,'Last 7 days')}${st(all.filter(l=>l.course).length,'With a course')}${st(all.filter(l=>yes(l)('price')).length,'Price confirmed')}${st(all.filter(l=>yes(l)('csr')).length,'CSR requested')}</div>
+ <div class="tools"><input placeholder="Search number, program, anything" value="${esc(sf.q)}" oninput="sf.q=this.value;sheetBody()"><select onchange="sf.src=this.value;sheetBody()"><option value="">All sources</option>${opt(Object.keys(SRC),sf.src)}</select><select onchange="sf.course=this.value;sheetBody()"><option value="">All courses</option>${opt(isA()?COURSES:me.courses,sf.course)}</select>${yn('price','Price confirmed')}${yn('csr','CSR requested')}<select onchange="sf.days=+this.value;sheetBody()"><option value="0">All time</option><option value="1" ${sf.days===1?'selected':''}>Last 24 hours</option><option value="7" ${sf.days===7?'selected':''}>Last 7 days</option><option value="30" ${sf.days===30?'selected':''}>Last 30 days</option></select></div>
+ <div class="card wrap" style="padding:0" id="sb"></div>`;sheetBody()}
+const ADMIN_H='6a9b6d9cc984035537c5ba3e67c04ba1c9aa913cd2075a03a7bab980d98434c5';
+const isA=()=>me&&me.role==='admin';
+const vis=()=>isA()?leads:leads.filter(l=>l.course&&me.courses.includes(l.course));
+const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const dark=()=>theme.mode==='dark'||((!theme.mode||theme.mode==='system')&&matchMedia('(prefers-color-scheme: dark)').matches);
+function tgl(){theme.mode=dark()?'light':'dark';applyTheme();saveT();render()}
+async function doLogin(){const u=$('lu').value.trim().toLowerCase(),p=$('lp').value;let h='';
+ try{h=await sha('ld:'+u+':'+p)}catch(e){$('le').textContent='Sign in needs a secure (https) page.';return}
+ const x=users.find(y=>y.user===u&&y.hash===h);
+ if(u==='admin'&&h===ADMIN_H)me={role:'admin',name:'Admin',user:'admin'};else if(x)me={role:'csr',name:x.name,user:x.user,courses:x.courses};else{$('le').textContent='Wrong username or password.';return}
+ sessionStorage.setItem('ld_me',JSON.stringify(me));$('lp').value='';$('le').textContent='';view='dashboard';start()}
+function logout(){sessionStorage.removeItem('ld_me');location.reload()}
+async function loadCfg(){if(localStorage.getItem('ld_d')==='1')return;try{const r=await fetch('config.json?'+Date.now());if(!r.ok)return;const c=await r.json();
+ if(Array.isArray(c.users)){const old=users;users=c.users.map(u=>({...u,pw:(old.find(x=>x.user===u.user&&x.hash===u.hash)||{}).pw}));sv('ld_u',users)}
+ if(c.sheets){for(const k in c.sheets){(sheets[k]=sheets[k]||{}).urls=(c.sheets[k]||[]).slice()}sv('ld_s',sheets)}}catch(e){}}
+function start(){if(me&&me.role!=='admin'){const x=users.find(y=>y.user===me.user);me=x?{role:'csr',name:x.name,user:x.user,courses:x.courses}:null}
+ $('lg').style.display=me?'none':'flex';if(!me){sessionStorage.removeItem('ld_me');return}render();syncAll(true)}
+async function boot(){applyTheme();$('lg').style.display=me?'none':'flex';await loadCfg();start()}
+let ue='';
+function usersV(){
+ const U=users.find(x=>x.user===ue)||{name:'',user:'',courses:[]},cnt=u=>leads.filter(l=>u.courses.includes(l.course)).length;
+ $('main').innerHTML=`<div class="top"><h2>Users</h2><button class="btn ghost" onclick="cfgDl()">Download config.json</button></div>
+ <div class="mut" style="margin-bottom:12px">${localStorage.getItem('ld_d')==='1'?'<b style="color:var(--hot)">Unpublished changes.</b> ':''}Users and sheet links are saved in this browser. Passwords you set are shown only here, they are never put in config.json. For users to sign in from their own computers, press Download config.json and upload it to Netlify next to index.html.</div>
+ <div class="card wrap" style="padding:0;margin-bottom:14px"><table><tr>${isA()?`<th style="width:30px"><input type="checkbox" style="width:auto" ${shown.length&&shown.every(l=>sel.has(l.id))?'checked':''} onchange="tall(this.checked)"></th>`:''}<th>Name</th><th>Username</th><th>Password</th><th>Courses</th><th>Leads</th><th></th></tr>${users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.user)}</td><td>${u.pw?`<span>••••••</span> <button class="btn del" style="color:var(--acc)" data-p="${esc(u.pw)}" onclick="tp(this)">Show</button>`:'<span class="mut">Not saved, set it again</span>'}</td><td>${esc(u.courses.join(', '))||'<span class="mut">None</span>'}</td><td>${cnt(u)}</td><td><button class="btn ghost" onclick="ue='${u.user}';usersV()">Edit</button> <button class="btn del" onclick="delU('${u.user}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No users yet. Create one below.</td></tr>'}</table></div>
+ <div class="card"><h3 style="margin-top:0">${ue?'Edit user':'Create user'}</h3><div class="f"><div><label>Full name</label><input id="un" value="${esc(U.name)}"></div><div><label>Username</label><input id="uu" value="${esc(U.user)}" ${ue?'readonly':''}></div><div class="full"><label>${ue?'New password (leave empty to keep the old one)':'Password'}</label><input id="up" type="text" autocomplete="off"></div>
+ <div class="full"><label>Courses this user can see</label>${Object.entries(CATS).map(e=>`<div style="margin:6px 0"><b style="font-size:13px">${e[0]}</b><br>${e[1].map(c=>`<label style="display:inline-block;margin-right:14px;color:var(--ink)"><input type="checkbox" class="uc" style="width:auto" value="${c}" ${U.courses.includes(c)?'checked':''}> ${c}</label>`).join('')}</div>`).join('')}</div></div>
+ <div id="uerr" style="color:var(--hot);margin-top:8px"></div><div class="act"><span></span><div>${ue?'<button class="btn ghost" onclick="ue=\'\';usersV()">Cancel</button> ':''}<button class="btn" onclick="saveU()">${ue?'Save changes':'Create user'}</button></div></div></div>`}
+async function saveU(){const n=$('un').value.trim(),u=$('uu').value.trim().toLowerCase(),p=$('up').value,cs=[...document.querySelectorAll('.uc:checked')].map(x=>x.value),E=m=>{$('uerr').textContent=m};
+ if(!n||!/^[a-z0-9_.-]+$/.test(u))return E('Enter a name and a username (letters, numbers, dot and dash only).');
+ if(u==='admin')return E('That username is reserved.');
+ const x=users.find(y=>y.user===u);if(!ue&&x)return E('That username already exists.');
+ if((!x||p)&&p.length<6)return E('Password must be at least 6 characters.');
+ const h=p?await sha('ld:'+u+':'+p):x.hash;
+ if(x){x.name=n;x.hash=h;x.courses=cs;if(p)x.pw=p}else users.push({name:n,user:u,hash:h,courses:cs,pw:p});
+ sv('ld_u',users);localStorage.setItem('ld_d','1');ue='';usersV()}
+function tp(b){const sp=b.previousElementSibling;if(b.textContent==='Show'){sp.textContent=b.dataset.p;b.textContent='Hide'}else{sp.textContent='••••••';b.textContent='Show'}}
+function delU(u){if(confirm('Delete user '+u+'?')){users=users.filter(x=>x.user!==u);sv('ld_u',users);localStorage.setItem('ld_d','1');usersV()}}
+function cfgDl(){const c={users:users.map(({pw,...u})=>u),sheets:Object.fromEntries(Object.keys(SRC).map(k=>[k,urls(k).filter(x=>x)]))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(c,null,1)],{type:'application/json'}));a.download='config.json';a.click();localStorage.removeItem('ld_d');usersV()}
+let sel=new Set(),shown=[];
+function updBulk(){const b=$('bd');if(b){b.style.display=sel.size?'':'none';b.textContent='Delete selected ('+sel.size+')'}}
+function tsel(id,c){c?sel.add(id):sel.delete(id);updBulk()}
+function tall(c){shown.forEach(l=>c?sel.add(l.id):sel.delete(l.id));body();updBulk()}
+function delLeads(ids){const S=new Set(ids);leads.filter(l=>S.has(l.id)).forEach(l=>{const d=String(l.phone||'').replace(/\D/g,''),e=String(l.email||'').toLowerCase();if(d&&!delk.includes(d))delk.push(d);if(e&&!delk.includes(e))delk.push(e)});leads=leads.filter(l=>!S.has(l.id));sv('ld_x',delk);plog('Deleted '+S.size+' lead(s)');sel.clear();save();render()}
+function delSel(){if(sel.size&&confirm('Delete '+sel.size+' selected lead(s)? This cannot be undone.'))delLeads([...sel])}
+function delAll(){if(shown.length&&confirm('Delete all '+shown.length+' lead(s) shown here? This cannot be undone.'))delLeads(shown.map(l=>l.id))}
+function pipe(){const leads=vis();
+ $('main').innerHTML=`<div class="top"><h2>Deals</h2><button class="btn" onclick="edit()">Add deal</button></div><div class="kan">${STAGES.map(s=>{const r=leads.filter(l=>l.stage===s),t=r.reduce((a,l)=>a+(+l.amount||0),0);return `<div class="col" ondragover="event.preventDefault()" ondrop="drop(event,'${s}')"><div class="ch"><span><span class="pill" style="background:${SC[s]}">${s}</span> <span class="mut">${r.length}</span></span></div>${r.map(l=>`<div class="kc" draggable="true" ondragstart="event.dataTransfer.setData('t','${l.id}')" onclick="edit('${l.id}')"><b>${esc(l.name)}</b><div class="mut">${esc(l.course||l.company)}</div><div>${usd(l.amount)}${l.close?', closes '+l.close:''}</div><div><span class="dot" style="background:${SRC[l.source]}"></span> ${l.source} <span class="tag t-${l.temp}" style="float:right">${l.temp}</span></div></div>`).join('')}<div class="kf"><b>${usd(t)}</b> total<br>${usd(t*PR[s])} (${PR[s]*100}%) weighted</div></div>`}).join('')}</div>`}
+function drop(e,s){const l=leads.find(x=>x.id===e.dataTransfer.getData('t'));if(l&&l.stage!==s){plog(l.name+' moved from '+l.stage+' to '+s);l.stage=s;save();pipe()}}
+function comp(){const leads=vis();const g={};leads.forEach(l=>{const k=l.company||'No company';(g[k]=g[k]||[]).push(l)});
+ $('main').innerHTML=`<div class="top"><h2>Companies <span class="mut">(${Object.keys(g).length})</span></h2></div><div class="card wrap" style="padding:0"><table><tr><th>Company name</th><th>Contacts</th><th>Deal value</th><th>Last added</th></tr>${Object.keys(g).map(k=>`<tr class="r" data-k="${esc(k==='No company'?'':k)}" onclick="nav('contacts',{q:this.dataset.k})"><td><b style="color:var(--acc)">${esc(k)}</b></td><td>${g[k].length}</td><td>${usd(g[k].reduce((a,l)=>a+(+l.amount||0),0))}</td><td class="mut">${fmt(Math.max(...g[k].map(l=>l.created)))}</td></tr>`).join('')}</table></div>`}
+function tasksV(){
+ $('main').innerHTML=`<div class="top"><h2>Tasks</h2></div><div class="tools"><input id="tt" placeholder="New task, e.g. call Ayesha" style="max-width:340px"><input id="td" type="date" style="width:auto"><button class="btn" onclick="addT()">Add task</button></div><div class="card">${tasks.length?tasks.map(t=>`<div class="bar"><input type="checkbox" style="width:auto" ${t.done?'checked':''} onchange="doneT('${t.id}')"><span style="${t.done?'text-decoration:line-through;color:var(--mut)':''}">${esc(t.title)}</span><em>${t.due||'No due date'} <button class="btn del" onclick="delT('${t.id}')">Delete</button></em></div>`).join(''):'<div class="empty">No tasks yet. Add a follow-up above.</div>'}</div>`}
+function addT(){const t=$('tt').value.trim();if(!t)return;tasks.unshift({id:'t'+Date.now(),title:t,due:$('td').value,done:false});plog('Task added: '+t);save();tasksV()}
+function doneT(id){const t=tasks.find(x=>x.id===id);t.done=!t.done;save();tasksV()}
+function delT(id){tasks=tasks.filter(x=>x.id!==id);save();tasksV()}
+function feedV(){
+ $('main').innerHTML=`<div class="top"><h2>Activity feed</h2></div><div class="card">${log.length?log.map(a=>`<div class="bar"><span>${esc(a.x)}</span><em>${new Date(a.t).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</em></div>`).join(''):'<div class="empty">Nothing yet. Add a lead or move a deal to see activity here.</div>'}</div>`}
+function list(){const leads=vis();
+ const q=filt.q.toLowerCase();
+ const rows=leads.filter(l=>(!filt.src||l.source===filt.src)&&(!filt.course||l.course===filt.course)&&(!filt.temp||l.temp===filt.temp)&&(!filt.stage||l.stage===filt.stage)&&(!q||[l.name,l.phone,l.email,l.notes].join(' ').toLowerCase().includes(q)));
+ const title=filt.temp?filt.temp+' leads':filt.src?filt.src+' leads':'Contacts';
+ const sel=(k,arr,ph)=>`<select onchange="filt.${k}=this.value;list()"><option value="">${ph}</option>${arr.map(a=>`<option ${filt[k]===a?'selected':''}>${a}</option>`).join('')}</select>`;
+ $('main').innerHTML=`<div class="top"><h2>${title} <span class="mut">(${rows.length})</span></h2><div>${isA()?'<button class="btn ghost" id="bd" style="display:none;color:var(--hot)" onclick="delSel()">Delete selected (0)</button> <button class="btn ghost" style="color:var(--hot)" onclick="delAll()">Delete all shown</button> <button class="btn ghost" onclick="csv()">Export CSV</button> ':''}<button class="btn" onclick="edit()">Add lead</button></div></div>
+ <div class="tools"><input id="q" placeholder="Search name, phone, email" value="${esc(filt.q)}" oninput="filt.q=this.value;body()">${sel('src',Object.keys(SRC),'All sources')}${sel('temp',TEMPS,'All temperatures')}${sel('stage',STAGES,'All stages')}${sel('course',isA()?COURSES:me.courses,'All courses')}</div>
+ <div class="card wrap" style="padding:0" id="tb"></div>`;body();updBulk()}
+function body(){const leads=vis();
+ const q=filt.q.toLowerCase();
+ const rows=leads.filter(l=>(!filt.src||l.source===filt.src)&&(!filt.course||l.course===filt.course)&&(!filt.temp||l.temp===filt.temp)&&(!filt.stage||l.stage===filt.stage)&&(!q||[l.name,l.phone,l.email,l.notes].join(' ').toLowerCase().includes(q)));
+ shown=rows;$('tb').innerHTML=rows.length?`<table><tr><th>Name</th><th>Contact</th><th>Course</th><th>Source</th><th>Temperature</th><th>Stage</th><th>Added</th></tr>${rows.map(l=>`<tr class="r" onclick="edit('${l.id}')">${isA()?`<td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto" ${sel.has(l.id)?'checked':''} onchange="tsel('${l.id}',this.checked)"></td>`:''}<td><b>${esc(l.name)}</b><div class="mut">${esc(l.company||l.notes).slice(0,48)}</div></td><td>${esc(l.phone)}<div class="mut">${esc(l.email)}</div></td><td>${esc(l.course)||'<span class="mut">Not set</span>'}<div class="mut">${esc([xv(l.extra,'applicant'),xv(l.extra,'experience')].filter(x=>x).join(', '))}</div></td><td><span class="dot" style="background:${SRC[l.source]}"></span> ${l.source}</td><td><span class="tag t-${l.temp}">${l.temp}</span></td><td>${l.stage}</td><td class="mut">${fmt(l.created)}</td></tr>`).join('')}</table>`:'<div class="empty">No leads match these filters. Clear a filter or add a new lead.</div>'}
 
-// ---------- storage: Supabase with localStorage fallback ----------
-let sb = null, usingSb = false;
-function isSupabaseConfigured(){
-  return SUPABASE_URL && !SUPABASE_URL.includes("YOUR-PROJECT") &&
-         SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR-ANON");
-}
-
-function loadLocal(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ state = JSON.parse(raw); return; }
-  }catch(e){ console.error("load failed", e); }
-  seedLocal();
-}
-function saveLocal(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
-  catch(e){ console.error("save failed", e); toast("Could not save — storage unavailable"); }
-}
-function seedLocal(){
-  const s1 = uid(), s2 = uid(), s3 = uid();
-  state.students = [
-    {id:s1, enroll:"EN-1001", name:"Ayesha Khan", course:"Web Development", hours:120, join:"2026-01-05", moduleTest:"complete", interview:"pending"},
-    {id:s2, enroll:"EN-1002", name:"Bilal Ahmed", course:"Graphic Design", hours:90, join:"2026-02-10"},
-    {id:s3, enroll:"EN-1003", name:"Sara Malik", course:"Web Development", hours:120, join:"2026-01-12"},
-  ];
-  const today = new Date();
-  const d = (off)=>{ const x=new Date(today); x.setDate(x.getDate()-off); return x.toISOString().slice(0,10); };
-  state.logs = [
-    {id:uid(), enroll:"EN-1001", date:d(0), tin:"09:00", tout:"13:30", status:"present"},
-    {id:uid(), enroll:"EN-1001", date:d(2), tin:"09:15", tout:"13:00", status:"present"},
-    {id:uid(), enroll:"EN-1002", date:d(1), tin:"10:00", tout:"14:00", status:"present"},
-    {id:uid(), enroll:"EN-1002", date:d(3), tin:"", tout:"", status:"leave"},
-    {id:uid(), enroll:"EN-1003", date:d(0), tin:"09:00", tout:"12:45", status:"present"},
-    {id:uid(), enroll:"EN-1003", date:d(1), tin:"09:05", tout:"", status:"present"},
-    {id:uid(), enroll:"EN-1003", date:d(20), tin:"09:00", tout:"13:00", status:"present"},
-  ];
-  saveLocal();
-}
-
-function loadUsersLocal(){
-  try{
-    const raw = localStorage.getItem(USERS_KEY);
-    if(raw){ state.users = JSON.parse(raw); return; }
-  }catch(e){ console.error("load users failed", e); }
-  seedUsersLocal();
-}
-function saveUsersLocal(){
-  try{ localStorage.setItem(USERS_KEY, JSON.stringify(state.users)); }
-  catch(e){ console.error("save users failed", e); toast("Could not save users"); }
-}
-function seedUsersLocal(){
-  state.users = [{ id: uid(), username: "Admin", password: "P@kistan2003" }];
-  saveUsersLocal();
-}
-
-async function fetchUsersFromSupabase(){
-  const { data, error } = await sb.from("app_users").select("*").order("username");
-  if(error) throw error;
-  state.users = data.map(r=>({ id:r.id, username:r.username, password:r.password }));
-}
-
-async function fetchAllFromSupabase(){
-  const { data: stu, error: e1 } = await sb.from("students").select("*").order("enroll");
-  if(e1) throw e1;
-  state.students = stu.map(r=>({ id:r.id, enroll:r.enroll, name:r.name, course:r.course, hours:r.hours, join:r.join_date||"", moduleTest:r.module_test==="complete"?"complete":"pending", interview:r.interview==="complete"?"complete":"pending" }));
-  const { data: logs, error: e2 } = await sb.from("logs").select("*").order("date",{ascending:false});
-  if(e2) throw e2;
-  state.logs = logs.map(r=>({ id:r.id, enroll:r.enroll, date:r.date, tin:(r.time_in||"").slice(0,5), tout:(r.time_out||"").slice(0,5), status:r.status||"present" }));
-  renderAll();
-}
-
-async function initApp(){
-  if(isSupabaseConfigured() && typeof window.supabase !== "undefined"){
-    try{
-      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      usingSb = true;
-      await fetchUsersFromSupabase();
-    }catch(e){
-      const msg = (e && (e.message || e.error_description || e.details)) || JSON.stringify(e);
-      console.error("Supabase init failed:", msg, e);
-      usingSb = false;
-      toast("Supabase connection failed: " + msg);
-    }
-  }
-  if(!usingSb) loadUsersLocal();
-
-  const savedUser = localStorage.getItem(AUTH_KEY);
-  if(savedUser && state.users.find(u=>u.username===savedUser)){
-    currentUsername = savedUser;
-    await enterApp();
-  } else {
-    document.getElementById("loginScreen").style.display = "flex";
-  }
-}
-
-function applyRoleUI(){
-  const usersBtn = document.getElementById("usersNavBtn");
-  if(isAdmin()){
-    usersBtn.style.display = "";
-  } else {
-    usersBtn.style.display = "none";
-    // safety: if a non-admin is somehow on the Users tab, bounce them to Dashboard
-    if(document.getElementById("tab-users").classList.contains("active")) switchTab("dashboard");
-  }
-}
-
-async function enterApp(){
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("appRoot").style.display = "block";
-  document.getElementById("saveModeNote").textContent = usingSb
-    ? "Saved permanently — synced via Supabase."
-    : "Saved in this browser only — add Supabase keys in the code to sync online.";
-  applyRoleUI();
-  if(usingSb){
-    try{ await fetchAllFromSupabase(); }
-    catch(e){
-      const msg = (e && (e.message || e.error_description || e.details)) || JSON.stringify(e);
-      console.error("Loading data from Supabase failed:", msg, e);
-      toast("Could not load data from Supabase: " + msg);
-    }
-  } else { loadLocal(); renderAll(); }
-  if(isAdmin()) renderUsers();
-}
-
-async function addOrUpdateStudent(id, data){
-  if(usingSb){
-    const row = { enroll: data.enroll, name: data.name, course: data.course, hours: data.hours, join_date: data.join || null };
-    if(id){ const { error } = await sb.from("students").update(row).eq("id", id); if(error) throw error; }
-    else { const { error } = await sb.from("students").insert(row); if(error) throw error; }
-    await fetchAllFromSupabase();
-  } else {
-    if(id) Object.assign(state.students.find(s=>s.id===id), data);
-    else state.students.push({id: uid(), ...data});
-    saveLocal(); renderAll();
-  }
-}
-async function removeStudent(id){
-  if(usingSb){ const { error } = await sb.from("students").delete().eq("id", id); if(error) throw error; await fetchAllFromSupabase(); }
-  else { state.students = state.students.filter(s=>s.id!==id); saveLocal(); renderAll(); }
-}
-async function updateAssessment(id, field, value){
-  const s = state.students.find(x=>x.id===id); if(!s) return;
-  const prev = s[field];
-  s[field] = value;                       // update screen immediately
-  renderAll();
-  if(usingSb){
-    const col = field==="moduleTest" ? "module_test" : "interview";
-    const { error } = await sb.from("students").update({ [col]: value }).eq("id", id);
-    if(error){ s[field] = prev; renderAll(); throw error; }
-  } else { saveLocal(); }
-}
-async function renameStudentEnroll(oldEnroll, newEnroll){
-  if(oldEnroll===newEnroll) return;
-  if(usingSb){
-    const { error } = await sb.from("logs").update({ enroll: newEnroll }).eq("enroll", oldEnroll);
-    if(error) throw error;
-  } else {
-    state.logs.forEach(l=>{ if(l.enroll===oldEnroll) l.enroll = newEnroll; });
-  }
-}
-async function addOrUpdateLog(id, data){
-  if(usingSb){
-    const row = { enroll: data.enroll, date: data.date, time_in: data.tin || null, time_out: data.tout || null, status: data.status || "present" };
-    if(id){ const { error } = await sb.from("logs").update(row).eq("id", id); if(error) throw error; }
-    else { const { error } = await sb.from("logs").insert(row); if(error) throw error; }
-    await fetchAllFromSupabase();
-  } else {
-    if(id) Object.assign(state.logs.find(l=>l.id===id), data);
-    else state.logs.push({id: uid(), ...data});
-    saveLocal(); renderAll();
-  }
-}
-async function removeLog(id){
-  if(usingSb){ const { error } = await sb.from("logs").delete().eq("id", id); if(error) throw error; await fetchAllFromSupabase(); }
-  else { state.logs = state.logs.filter(l=>l.id!==id); saveLocal(); renderAll(); }
-}
-
-async function addOrUpdateUser(id, data){
-  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
-  if(usingSb){
-    if(id){ const { error } = await sb.from("app_users").update(data).eq("id", id); if(error) throw error; }
-    else { const { error } = await sb.from("app_users").insert(data); if(error) throw error; }
-    await fetchUsersFromSupabase();
-  } else {
-    if(id) Object.assign(state.users.find(u=>u.id===id), data);
-    else state.users.push({id: uid(), ...data});
-    saveUsersLocal();
-  }
-  renderUsers();
-}
-async function removeUser(id){
-  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
-  if(state.users.length<=1){ toast("At least one login user must remain"); return; }
-  if(usingSb){ const { error } = await sb.from("app_users").delete().eq("id", id); if(error) throw error; await fetchUsersFromSupabase(); }
-  else { state.users = state.users.filter(u=>u.id!==id); saveUsersLocal(); }
-  renderUsers();
-}
-
-function hoursOf(log){
-  if(log.status === "leave" || !log.tin || !log.tout) return 0;
-  const [ih,im]=log.tin.split(":").map(Number), [oh,om]=log.tout.split(":").map(Number);
-  let h = (oh+om/60) - (ih+im/60);
-  return h>0 ? h : 0;
-}
-function pctFmt(p){ return (p===null || p===undefined || isNaN(p)) ? "—" : (Math.round(p*100)/100)+"%"; }
-function completionStats(s){
-  const st = studentStats(s.enroll);
-  if(!s.hours){ return { total: st.total, required: s.hours, pct: null }; }
-  const pct = (st.total / s.hours) * 100;
-  return { total: st.total, required: s.hours, pct };
-}
-function weekBounds(ref){
-  const d = new Date(ref); const day = (d.getDay()+6)%7; // 0=Mon
-  const mon = new Date(d); mon.setDate(d.getDate()-day); mon.setHours(0,0,0,0);
-  const sun = new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
-  return [mon, sun];
-}
-function monthBounds(ref){
-  const d = new Date(ref);
-  return [new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999)];
-}
-function inRange(dateStr, from, to){
-  const t = new Date(dateStr+"T12:00:00").getTime();
-  return t >= from.getTime() && t <= to.getTime();
-}
-function studentStats(enroll){
-  const today = new Date();
-  const [wS,wE] = weekBounds(today), [mS,mE] = monthBounds(today);
-  let week=0, month=0, total=0;
-  state.logs.filter(l=>l.enroll===enroll).forEach(l=>{
-    const h = hoursOf(l);
-    total += h;
-    if(inRange(l.date, wS, wE)) week += h;
-    if(inRange(l.date, mS, mE)) month += h;
-  });
-  return {week, month, total};
-}
-
-// ---------- rendering ----------
-let currentSearchId = null;
-function renderAll(){
-  renderDashboard(); renderStudents(); renderLogSelect(); renderLogs(); renderRecords(); renderTests();
-  if(currentSearchId) showStudentProfile(currentSearchId);
-}
-
-let testPage = 1;
-const mtOf = s => s.moduleTest==="complete" ? "complete" : "pending";
-const ivOf = s => s.interview==="complete" ? "complete" : "pending";
-function renderTests(){
-  const q = (document.getElementById("testSearch").value||"").toLowerCase();
-  const f = document.getElementById("testFilter").value;
-  const body = document.getElementById("testBody");
-  const n = state.students.length;
-  const mtDone = state.students.filter(s=>mtOf(s)==="complete").length;
-  const ivDone = state.students.filter(s=>ivOf(s)==="complete").length;
-  document.getElementById("testCards").innerHTML = `
-    <div class="card"><div class="k">Final Test — Complete</div><div class="v">${mtDone} <span>/ ${n}</span></div></div>
-    <div class="card"><div class="k">Final Test — Pending</div><div class="v">${n-mtDone}</div></div>
-    <div class="card"><div class="k">Interview — Complete</div><div class="v">${ivDone} <span>/ ${n}</span></div></div>
-    <div class="card"><div class="k">Interview — Pending</div><div class="v">${n-ivDone}</div></div>`;
-  let rows = state.students.filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
-  if(f==="mt-pending") rows = rows.filter(s=>mtOf(s)==="pending");
-  if(f==="mt-complete") rows = rows.filter(s=>mtOf(s)==="complete");
-  if(f==="iv-pending") rows = rows.filter(s=>ivOf(s)==="pending");
-  if(f==="iv-complete") rows = rows.filter(s=>ivOf(s)==="complete");
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  if(testPage > totalPages) testPage = totalPages;
-  if(testPage < 1) testPage = 1;
-  const pageRows = rows.slice((testPage-1)*PAGE_SIZE, testPage*PAGE_SIZE);
-  renderPager("testPager", testPage, rows.length, p=>{ testPage = p; renderTests(); });
-  body.innerHTML = "";
-  if(!pageRows.length){ body.innerHTML = `<tr><td colspan="6" class="empty">No students found.</td></tr>`; return; }
-  const sel = (id, field, val) => `<select class="status-select ${val}" data-id="${id}" data-field="${field}">
-      <option value="pending" ${val==="pending"?"selected":""}>Pending</option>
-      <option value="complete" ${val==="complete"?"selected":""}>Complete</option></select>`;
-  pageRows.forEach((s,i)=>{
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${(testPage-1)*PAGE_SIZE+i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
-      <td>${sel(s.id,"moduleTest",mtOf(s))}</td><td>${sel(s.id,"interview",ivOf(s))}</td>
-    </tr>`);
-  });
-  body.querySelectorAll("select[data-field]").forEach(el=>el.onchange = async ()=>{
-    try{ await updateAssessment(el.dataset.id, el.dataset.field, el.value); toast("Saved"); }
-    catch(err){ console.error(err); toast("Could not save: " + errMsg(err)); }
-  });
-}
-document.getElementById("testSearch").addEventListener("input", ()=>{ testPage = 1; renderTests(); });
-document.getElementById("testFilter").addEventListener("input", ()=>{ testPage = 1; renderTests(); });
-
-function renderSearchSuggestions(){
-  const q = document.getElementById("searchInput").value.trim().toLowerCase();
-  const box = document.getElementById("searchSuggestions");
-  const profile = document.getElementById("searchProfile");
-  if(!q){ box.innerHTML=""; profile.innerHTML=""; currentSearchId = null; return; }
-  const matches = state.students.filter(s=> s.enroll.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
-  if(!matches.length){
-    box.innerHTML = `<div class="empty">No student matches "${esc(q)}"</div>`;
-    profile.innerHTML = ""; currentSearchId = null; return;
-  }
-  if(matches.length===1){
-    box.innerHTML = "";
-    showStudentProfile(matches[0].id);
-  } else {
-    box.innerHTML = matches.map(s=>`<button class="btn small" data-pick="${s.id}">${esc(s.enroll)} — ${esc(s.name)}</button>`).join("");
-    box.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
-      document.getElementById("searchInput").value = state.students.find(s=>s.id===b.dataset.pick).enroll;
-      box.innerHTML = "";
-      showStudentProfile(b.dataset.pick);
-    });
-    profile.innerHTML = "";
-  }
-}
-function showStudentProfile(id){
-  const s = state.students.find(x=>x.id===id);
-  const profile = document.getElementById("searchProfile");
-  if(!s){ profile.innerHTML = ""; currentSearchId = null; return; }
-  currentSearchId = id;
-  const st = studentStats(s.enroll);
-  const comp = completionStats(s);
-  const remaining = s.hours - st.total;
-  const idx = state.students.findIndex(x=>x.id===id);
-  const logs = state.logs.filter(l=>l.enroll===s.enroll).sort((a,b)=>b.date.localeCompare(a.date));
-  const rowsHtml = logs.length ? logs.map(l=>{
-    const isLeave = l.status==="leave";
-    const badge = isLeave ? '<span class="badge leave">Leave</span>'
-      : l.tout ? '<span class="badge ok">Present</span>'
-      : '<span class="badge pending">Checked In</span>';
-    return `<tr><td>${l.date}</td><td>${badge}</td><td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td></tr>`;
-  }).join("") : `<tr><td colspan="5" class="empty">No attendance entries yet.</td></tr>`;
-  profile.innerHTML = `
-    <div class="section">
-      <div class="section-head"><h2>${esc(s.name)}</h2><span class="hint">${esc(s.enroll)}</span></div>
-      <div class="section-body">
-        <div class="cards">
-          <div class="card"><div class="k">Serial No</div><div class="v">${idx+1}</div></div>
-          <div class="card"><div class="k">Course</div><div class="v" style="font-size:16px">${esc(s.course)}</div></div>
-          <div class="card"><div class="k">Join Date</div><div class="v" style="font-size:16px">${s.join||"—"}</div></div>
-          <div class="card"><div class="k">Required Hours</div><div class="v">${fmt(s.hours)}</div></div>
-          <div class="card"><div class="k">Week Hours</div><div class="v">${fmt(st.week)}</div></div>
-          <div class="card"><div class="k">Month Hours</div><div class="v">${fmt(st.month)}</div></div>
-          <div class="card"><div class="k">Total Hours</div><div class="v">${fmt(st.total)}</div></div>
-          <div class="card"><div class="k">Remaining Hours</div><div class="v">${fmt(remaining)}</div></div>
-          <div class="card"><div class="k">Completion</div><div class="v">${pctFmt(comp.pct)}</div></div>
-          <div class="card"><div class="k">Final Test</div><div class="v" style="font-size:16px"><span class="badge ${mtOf(s)==="complete"?"ok":"warn"}">${mtOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
-          <div class="card"><div class="k">Interview</div><div class="v" style="font-size:16px"><span class="badge ${ivOf(s)==="complete"?"ok":"warn"}">${ivOf(s)==="complete"?"Complete":"Pending"}</span></div></div>
-        </div>
-      </div>
-    </div>
-    <div class="section">
-      <div class="section-head"><h2>Attendance history</h2><span class="hint">${logs.length} entries</span></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table></div>
-    </div>
-  `;
-}
-document.getElementById("searchInput").addEventListener("input", renderSearchSuggestions);
-
-function renderDashboard(){
-  const q = (document.getElementById("dashSearch").value||"").toLowerCase();
-  const body = document.getElementById("dashBody");
-  const rows = state.students
-    .filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
-  body.innerHTML = "";
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="11" class="empty">No students yet. Add one in the Students tab.</td></tr>`; }
-  rows.forEach((s,i)=>{
-    const st = studentStats(s.enroll);
-    const remaining = s.hours - st.total;
-    const comp = completionStats(s);
-    const badge = remaining<=0 ? `<span class="badge ok">Complete</span>` : `<span class="badge warn">${fmt(remaining)} left</span>`;
-    const compClass = comp.pct===null ? "" : comp.pct>=100 ? "ok" : comp.pct>=50 ? "warn" : "leave";
-    const compCell = comp.pct===null ? "—" : `<span class="badge ${compClass}">${pctFmt(comp.pct)}</span>`;
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
-      <td class="mono">${fmt(st.week)}</td><td class="mono">${fmt(st.month)}</td><td class="mono">${fmt(st.total)}</td>
-      <td class="mono">${fmt(s.hours)}</td><td class="mono">${fmt(remaining)}</td><td>${compCell}</td><td>${badge}</td>
-    </tr>`);
-  });
-
-  const totalStudents = state.students.length;
-  const totalHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).total,0);
-  const weekHoursAll = state.students.reduce((a,s)=>a+studentStats(s.enroll).week,0);
-  const completed = state.students.filter(s=>studentStats(s.enroll).total >= s.hours).length;
-  const compPcts = state.students.map(s=>completionStats(s).pct).filter(p=>p!==null);
-  const avgCompletion = compPcts.length ? (compPcts.reduce((a,b)=>a+b,0)/compPcts.length) : null;
-  document.getElementById("statCards").innerHTML = `
-    <div class="card"><div class="k">Students</div><div class="v">${totalStudents}</div></div>
-    <div class="card"><div class="k">This week — all students</div><div class="v">${fmt(weekHoursAll)} <span>hrs</span></div></div>
-    <div class="card"><div class="k">Total logged — all time</div><div class="v">${fmt(totalHoursAll)} <span>hrs</span></div></div>
-    <div class="card"><div class="k">Avg completion</div><div class="v">${pctFmt(avgCompletion)}</div></div>
-    <div class="card"><div class="k">Courses completed</div><div class="v">${completed} <span>/ ${totalStudents}</span></div></div>
-  `;
-}
-
-function renderStudents(){
-  const q = (document.getElementById("stuSearch").value||"").toLowerCase();
-  const body = document.getElementById("stuBody");
-  const rows = state.students.filter(s=>!q || [s.enroll,s.name,s.course].join(" ").toLowerCase().includes(q));
-  body.innerHTML = "";
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="7" class="empty">No students found.</td></tr>`; return; }
-  rows.forEach((s,i)=>{
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${i+1}</td><td>${esc(s.enroll)}</td><td>${esc(s.name)}</td><td>${esc(s.course)}</td>
-      <td class="mono">${fmt(s.hours)}</td><td>${s.join||"—"}</td>
-      <td class="rowactions">
-        <button class="btn small" data-edit="${s.id}">Edit</button>
-        <button class="btn small danger" data-del="${s.id}">Delete</button>
-      </td>
-    </tr>`);
-  });
-  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editStudent(b.dataset.edit));
-  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delStudent(b.dataset.del));
-}
-
-function renderLogSelect(){
-  const opts = state.students.map(s=>`<option value="${esc(s.enroll)}">${esc(s.enroll)} — ${esc(s.name)}</option>`).join("");
-  document.getElementById("logEnroll").innerHTML = opts || `<option value="">Add a student first</option>`;
-  const rec = document.getElementById("recStudent");
-  const cur = rec.value;
-  rec.innerHTML = `<option value="">All students</option>` + opts;
-  rec.value = cur;
-}
-
-function nameFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.name : "(removed)"; }
-function courseFor(enroll){ const s = state.students.find(s=>s.enroll===enroll); return s? s.course : "—"; }
-
-const PAGE_SIZE = 25;
-let logPage = 1, recPage = 1;
-function pageList(cur, total){
-  if(total <= 7) return Array.from({length:total}, (_,i)=>i+1);
-  const set = new Set([1, total, cur, cur-1, cur+1]);
-  if(cur <= 3) [2,3,4].forEach(n=>set.add(n));
-  if(cur >= total-2) [total-1,total-2,total-3].forEach(n=>set.add(n));
-  const nums = [...set].filter(n=>n>=1 && n<=total).sort((a,b)=>a-b);
-  const out = [];
-  nums.forEach((n,i)=>{ if(i>0 && n-nums[i-1]>1) out.push("…"); out.push(n); });
-  return out;
-}
-function renderPager(elId, page, totalItems, onGo){
-  const el = document.getElementById(elId);
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  if(totalItems <= PAGE_SIZE){ el.innerHTML = ""; return; }
-  const from = (page-1)*PAGE_SIZE + 1, to = Math.min(page*PAGE_SIZE, totalItems);
-  let html = `<button class="btn small" data-go="${page-1}" ${page<=1?"disabled":""}>← Previous</button>`;
-  pageList(page, totalPages).forEach(n=>{
-    html += n==="…" ? `<span class="info">…</span>`
-      : `<button class="btn small ${n===page?"current":""}" data-go="${n}">${n}</button>`;
-  });
-  html += `<button class="btn small" data-go="${page+1}" ${page>=totalPages?"disabled":""}>Next →</button>`;
-  html += `<span class="info">Showing ${from}–${to} of ${totalItems}</span>`;
-  el.innerHTML = html;
-  el.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ if(!b.disabled) onGo(Number(b.dataset.go)); });
-}
-
-function renderLogs(){
-  const body = document.getElementById("logBody");
-  const all = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date) || (b.tin||"").localeCompare(a.tin||""));
-  const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
-  if(logPage > totalPages) logPage = totalPages;
-  if(logPage < 1) logPage = 1;
-  const rows = all.slice((logPage-1)*PAGE_SIZE, logPage*PAGE_SIZE);
-  body.innerHTML = "";
-  document.getElementById("logCount").textContent = `${state.logs.length} total entries`;
-  renderPager("logPager", logPage, all.length, n=>{ logPage = n; renderLogs(); });
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="8" class="empty">No entries yet.</td></tr>`; return; }
-  rows.forEach(l=>{
-    const isLeave = l.status === "leave";
-    const statusBadge = isLeave ? `<span class="badge leave">Leave</span>`
-      : l.tout ? `<span class="badge ok">Present</span>`
-      : `<span class="badge pending">Checked In</span>`;
-    const checkoutBtn = (!isLeave && l.tin && !l.tout) ? `<button class="btn small primary" data-checkout="${l.id}">Check Out Now</button>` : "";
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td>
-      <td>${statusBadge}</td>
-      <td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td>
-      <td class="rowactions">
-        ${checkoutBtn}
-        <button class="btn small" data-edit="${l.id}">Edit</button>
-        <button class="btn small danger" data-del="${l.id}">Delete</button>
-      </td>
-    </tr>`);
-  });
-  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editLog(b.dataset.edit));
-  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delLog(b.dataset.del));
-  body.querySelectorAll("[data-checkout]").forEach(b=>b.onclick=()=>quickCheckOut(b.dataset.checkout));
-}
-async function quickCheckOut(id){
-  const l = state.logs.find(l=>l.id===id); if(!l) return;
-  const tout = new Date().toTimeString().slice(0,5);
-  if(tout <= l.tin){ toast("Current time is before check-in — edit the entry manually"); return; }
-  try{
-    await addOrUpdateLog(id, { enroll:l.enroll, date:l.date, tin:l.tin, tout, status:"present" });
-    toast("Checked out at " + tout);
-  }catch(err){ console.error(err); toast("Could not check out: " + errMsg(err)); }
-}
-
-function renderRecords(){
-  const enroll = document.getElementById("recStudent").value;
-  const from = document.getElementById("recFrom").value;
-  const to = document.getElementById("recTo").value;
-  const body = document.getElementById("recBody");
-  let allRows = [...state.logs].sort((a,b)=> b.date.localeCompare(a.date) || (b.tin||"").localeCompare(a.tin||""));
-  if(enroll) allRows = allRows.filter(l=>l.enroll===enroll);
-  if(from) allRows = allRows.filter(l=>l.date >= from);
-  if(to) allRows = allRows.filter(l=>l.date <= to);
-  const recTotalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
-  if(recPage > recTotalPages) recPage = recTotalPages;
-  if(recPage < 1) recPage = 1;
-  const rows = allRows.slice((recPage-1)*PAGE_SIZE, recPage*PAGE_SIZE);
-  renderPager("recPager", recPage, allRows.length, n=>{ recPage = n; renderRecords(); });
-
-  let statsHtml;
-  if(enroll){
-    const s = state.students.find(s=>s.enroll===enroll);
-    if(s){
-      const c = completionStats(s);
-      statsHtml = c.pct===null
-        ? `${esc(s.name)} has no required hours set.`
-        : `${esc(s.name)} has completed <strong>${pctFmt(c.pct)}</strong> of required hours (${fmt(c.total)} / ${fmt(c.required)} hrs).`;
-    } else { statsHtml = ""; }
-  } else {
-    const pcts = state.students.map(s=>completionStats(s).pct).filter(p=>p!==null);
-    const avg = pcts.length ? (pcts.reduce((a,b)=>a+b,0)/pcts.length) : null;
-    statsHtml = avg===null
-      ? "No students with required hours set yet."
-      : `Average completion across all students: <strong>${pctFmt(avg)}</strong> of required hours.`;
-  }
-  document.getElementById("recStats").innerHTML = statsHtml;
-
-  body.innerHTML = "";
-  if(!rows.length){ body.innerHTML = `<tr><td colspan="8" class="empty">No records match these filters.</td></tr>`; return; }
-  rows.forEach(l=>{
-    const isLeave = l.status === "leave";
-    const statusBadge = isLeave ? `<span class="badge leave">Leave</span>`
-      : l.tout ? `<span class="badge ok">Present</span>`
-      : `<span class="badge pending">Checked In</span>`;
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${l.date}</td><td>${esc(l.enroll)}</td><td>${esc(nameFor(l.enroll))}</td><td>${esc(courseFor(l.enroll))}</td>
-      <td>${statusBadge}</td>
-      <td>${l.tin||"—"}</td><td>${l.tout||"—"}</td><td class="mono">${fmt(hoursOf(l))}</td>
-    </tr>`);
-  });
-}
-
-function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-
-function renderUsers(){
-  if(!isAdmin()) return;
-  const body = document.getElementById("userBody");
-  body.innerHTML = "";
-  if(!state.users.length){ body.innerHTML = `<tr><td colspan="3" class="empty">No login users yet.</td></tr>`; return; }
-  state.users.forEach(u=>{
-    body.insertAdjacentHTML("beforeend", `<tr>
-      <td>${esc(u.username)}</td>
-      <td><span class="pw-mask" data-shown="0">••••••••</span> <button class="btn small" data-reveal="${u.id}">Show</button></td>
-      <td class="rowactions">
-        <button class="btn small" data-edit="${u.id}">Edit</button>
-        <button class="btn small danger" data-del="${u.id}">Delete</button>
-      </td>
-    </tr>`);
-  });
-  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editUser(b.dataset.edit));
-  body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delUser(b.dataset.del));
-  body.querySelectorAll("[data-reveal]").forEach(b=>b.onclick=()=>{
-    const u = state.users.find(x=>x.id===b.dataset.reveal);
-    const cell = b.previousElementSibling;
-    const shown = cell.dataset.shown === "1";
-    cell.textContent = shown ? "••••••••" : u.password;
-    cell.dataset.shown = shown ? "0" : "1";
-    b.textContent = shown ? "Show" : "Hide";
-  });
-}
-
-// ---------- students CRUD ----------
-const stuForm = document.getElementById("stuForm");
-stuForm.addEventListener("submit", async e=>{
-  e.preventDefault();
-  const id = document.getElementById("stuId").value;
-  const enroll = document.getElementById("stuEnroll").value.trim();
-  const dup = state.students.find(s=>s.enroll===enroll && s.id!==id);
-  if(dup){ toast("That Enroll No already exists"); return; }
-  const data = {
-    enroll, name: document.getElementById("stuName").value.trim(),
-    course: document.getElementById("stuCourse").value.trim(),
-    hours: parseFloat(document.getElementById("stuHours").value)||0,
-    join: document.getElementById("stuJoin").value,
-  };
-  const submitBtn = stuForm.querySelector("button[type=submit]");
-  submitBtn.disabled = true;
-  try{
-    if(id){
-      const oldEnroll = state.students.find(s=>s.id===id).enroll;
-      await addOrUpdateStudent(id, data);
-      await renameStudentEnroll(oldEnroll, enroll);
-      toast("Student updated");
-    } else {
-      await addOrUpdateStudent(null, data);
-      toast("Student added");
-    }
-    resetStuForm();
-  }catch(err){ console.error(err); toast("Could not save student: " + errMsg(err)); }
-  finally{ submitBtn.disabled = false; }
-});
-function editStudent(id){
-  const s = state.students.find(s=>s.id===id); if(!s) return;
-  document.getElementById("stuId").value = s.id;
-  document.getElementById("stuEnroll").value = s.enroll;
-  document.getElementById("stuName").value = s.name;
-  document.getElementById("stuCourse").value = s.course;
-  document.getElementById("stuHours").value = s.hours;
-  document.getElementById("stuJoin").value = s.join||"";
-  document.getElementById("stuFormTitle").textContent = "Edit student";
-  document.getElementById("stuCancel").style.display = "inline-flex";
-  switchTab("students");
-}
-async function delStudent(id){
-  const s = state.students.find(s=>s.id===id); if(!s) return;
-  if(!confirm(`Delete ${s.name}? Their logged entries will stay but show as removed.`)) return;
-  try{ await removeStudent(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
-}
-function resetStuForm(){
-  stuForm.reset(); document.getElementById("stuId").value = "";
-  document.getElementById("stuFormTitle").textContent = "Add student";
-  document.getElementById("stuCancel").style.display = "none";
-}
-document.getElementById("stuCancel").onclick = resetStuForm;
-
-// ---------- logs CRUD ----------
-const logForm = document.getElementById("logForm");
-function getLogType(){
-  const checked = logForm.querySelector('input[name="logType"]:checked');
-  return checked ? checked.value : "present";
-}
-function updateLogTypeUI(){
-  const type = getLogType();
-  const isLeave = type === "leave";
-  document.getElementById("logInWrap").style.display = isLeave ? "none" : "";
-  document.getElementById("logOutWrap").style.display = isLeave ? "none" : "";
-  document.getElementById("logIn").required = !isLeave;
-  document.querySelectorAll("#logTypeToggle label").forEach(l=>l.classList.toggle("active", l.dataset.type===type));
-}
-logForm.querySelectorAll('input[name="logType"]').forEach(r=>r.addEventListener("change", updateLogTypeUI));
-updateLogTypeUI();
-
-logForm.addEventListener("submit", async e=>{
-  e.preventDefault();
-  const enroll = document.getElementById("logEnroll").value;
-  if(!enroll){ toast("Add a student first"); return; }
-  const type = getLogType();
-  const id = document.getElementById("logId").value;
-  let data;
-  if(type === "leave"){
-    data = { enroll, date: document.getElementById("logDate").value, tin:"", tout:"", status:"leave" };
-  } else {
-    const tin = document.getElementById("logIn").value, tout = document.getElementById("logOut").value;
-    if(!tin){ toast("Time In is required"); return; }
-    if(tout && tout <= tin){ toast("Time Out must be after Time In"); return; }
-    data = { enroll, date: document.getElementById("logDate").value, tin, tout, status:"present" };
-  }
-  const submitBtn = logForm.querySelector("button[type=submit]");
-  submitBtn.disabled = true;
-  try{
-    await addOrUpdateLog(id || null, data);
-    toast(id ? "Entry updated" : (type==="leave" ? "Marked as leave" : (data.tout ? "Entry added" : "Checked in — check out any time later")));
-    resetLogForm();
-  }catch(err){ console.error(err); toast("Could not save entry: " + errMsg(err)); }
-  finally{ submitBtn.disabled = false; }
-});
-function editLog(id){
-  const l = state.logs.find(l=>l.id===id); if(!l) return;
-  document.getElementById("logId").value = l.id;
-  document.getElementById("logEnroll").value = l.enroll;
-  document.getElementById("logDate").value = l.date;
-  document.getElementById("logIn").value = l.tin||"";
-  document.getElementById("logOut").value = l.tout||"";
-  const type = l.status === "leave" ? "leave" : "present";
-  const radio = logForm.querySelector(`input[name="logType"][value="${type}"]`);
-  if(radio) radio.checked = true;
-  updateLogTypeUI();
-  document.getElementById("logFormTitle").textContent = "Edit entry";
-  document.getElementById("logCancel").style.display = "inline-flex";
-  switchTab("log");
-}
-async function delLog(id){
-  if(!confirm("Delete this log entry?")) return;
-  try{ await removeLog(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
-}
-function resetLogForm(){
-  logPage = 1;
-  logForm.reset(); document.getElementById("logId").value = "";
-  document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
-  const presentRadio = logForm.querySelector('input[name="logType"][value="present"]');
-  if(presentRadio) presentRadio.checked = true;
-  updateLogTypeUI();
-  document.getElementById("logFormTitle").textContent = "Add check-in / check-out";
-  document.getElementById("logCancel").style.display = "none";
-}
-document.getElementById("logCancel").onclick = resetLogForm;
-
-// ---------- users CRUD ----------
-const userForm = document.getElementById("userForm");
-userForm.addEventListener("submit", async e=>{
-  e.preventDefault();
-  if(!isAdmin()){ toast("Only Admin can manage users"); return; }
-  const id = document.getElementById("userId").value;
-  const username = document.getElementById("userName").value.trim();
-  const password = document.getElementById("userPass").value;
-  const dup = state.users.find(u=>u.username===username && u.id!==id);
-  if(dup){ toast("That username already exists"); return; }
-  const submitBtn = userForm.querySelector("button[type=submit]");
-  submitBtn.disabled = true;
-  try{
-    await addOrUpdateUser(id || null, { username, password });
-    toast(id ? "User updated" : "User added");
-    resetUserForm();
-  }catch(err){ console.error(err); toast("Could not save user: " + errMsg(err)); }
-  finally{ submitBtn.disabled = false; }
-});
-function editUser(id){
-  if(!isAdmin()) return;
-  const u = state.users.find(u=>u.id===id); if(!u) return;
-  document.getElementById("userId").value = u.id;
-  document.getElementById("userName").value = u.username;
-  document.getElementById("userPass").value = u.password;
-  document.getElementById("userFormTitle").textContent = "Edit user";
-  document.getElementById("userCancel").style.display = "inline-flex";
-}
-async function delUser(id){
-  if(!isAdmin()) return;
-  if(!confirm("Delete this login user?")) return;
-  try{ await removeUser(id); }catch(err){ console.error(err); toast("Could not delete: " + errMsg(err)); }
-}
-function resetUserForm(){
-  userForm.reset(); document.getElementById("userId").value = "";
-  document.getElementById("userFormTitle").textContent = "Add login user";
-  document.getElementById("userCancel").style.display = "none";
-}
-document.getElementById("userCancel").onclick = resetUserForm;
-
-// ---------- login / logout ----------
-document.getElementById("loginForm").addEventListener("submit", async e=>{
-  e.preventDefault();
-  const u = document.getElementById("loginUser").value.trim();
-  const p = document.getElementById("loginPass").value;
-  const errBox = document.getElementById("loginError");
-  const match = state.users.find(x=>x.username===u && x.password===p);
-  if(match){
-    errBox.textContent = "";
-    currentUsername = match.username;
-    try{ localStorage.setItem(AUTH_KEY, match.username); }catch(e2){}
-    await enterApp();
-  } else {
-    errBox.textContent = "Incorrect username or password";
-  }
-});
-document.getElementById("logoutBtn").onclick = ()=>{
-  try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
-  location.reload();
-};
-
-// ---------- filters & search ----------
-document.getElementById("dashSearch").addEventListener("input", renderDashboard);
-document.getElementById("stuSearch").addEventListener("input", renderStudents);
-["recStudent","recFrom","recTo"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ recPage = 1; renderRecords(); }));
-document.getElementById("recReset").onclick = ()=>{
-  recPage = 1;
-  document.getElementById("recStudent").value=""; document.getElementById("recFrom").value=""; document.getElementById("recTo").value="";
-  renderRecords();
-};
-
-// ---------- tabs ----------
-function switchTab(tab){
-  if(tab === "users" && !isAdmin()) tab = "dashboard";
-  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
-  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tab));
-  const titles = { dashboard:["Dashboard","Week, month and total hours for every student"],
-    search:["Search","Look up a student by roll number or name — full profile & history"],
-    students:["Students","Add and manage student records"],
-    log:["Daily Log","Record each check-in and check-out"],
-    records:["Records","Browse and filter every logged entry"],
-    tests:["Final Test & Interview","Mark each student's Final Test and interview as Pending or Complete"],
-    users:["Users","Manage who can sign in to this dashboard"] };
-  document.getElementById("pageTitle").textContent = titles[tab][0];
-  document.getElementById("pageSub").textContent = titles[tab][1];
-}
-document.getElementById("nav").addEventListener("click", e=>{
-  const b = e.target.closest(".navbtn"); if(b) switchTab(b.dataset.tab);
-});
-document.getElementById("addStudentBtn").onclick = ()=> switchTab("students");
-document.getElementById("addLogBtn").onclick = ()=> switchTab("log");
-
-// ---------- theme ----------
-document.getElementById("themeBtn").onclick = ()=>{
-  const cur = document.documentElement.getAttribute("data-theme");
-  const next = cur === "dark" ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", next);
-  try{ localStorage.setItem("shd_theme", next); }catch(e){}
-};
-try{ const t = localStorage.getItem("shd_theme"); if(t) document.documentElement.setAttribute("data-theme", t); }catch(e){}
-
-// ---------- export ----------
-async function saveWorkbook(wb, filename){
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([out], {type:"application/octet-stream"});
-  let usedClaudeDownload = false;
-  if(typeof claude !== "undefined" && claude.use){
-    try{
-      const downloads = await claude.use("downloads");
-      if(downloads){ await downloads.save({ filename, data: blob }); usedClaudeDownload = true; }
-    }catch(err){ if(err && err.code === "declined"){ usedClaudeDownload = true; } }
-  }
-  if(!usedClaudeDownload){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  }
-}
-function sheetOf(rows, widths){
-  const ws = XLSX.utils.json_to_sheet(rows);
-  if(widths) ws["!cols"] = widths.map(w=>({wch:w}));
-  return ws;
-}
-const testLabel = v => v==="complete" ? "Complete" : "Pending";
-function testRows(){
-  return state.students.map((s,i)=>({ "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-    "Final Test": testLabel(mtOf(s)), "Interview": testLabel(ivOf(s)) }));
-}
-async function runExport(btn, label, fn){
-  const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Preparing…";
-  try{ await fn(); toast(label); }
-  catch(e){ console.error(e); toast((e && e.message) ? e.message : "Export failed — check console"); }
-  finally{ btn.disabled = false; btn.textContent = old; }
-}
-
-// Full export (everything in one workbook)
-document.getElementById("exportBtn").addEventListener("click", ()=>runExport(document.getElementById("exportBtn"), "Excel file saved", async ()=>{
-  const wb = XLSX.utils.book_new();
-  const stuRows = state.students.map((s,i)=>({
-    "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-    "Required Hours": s.hours, "Join Date": s.join||"" }));
-  XLSX.utils.book_append_sheet(wb, sheetOf(stuRows,[9,26,28,22,14,12]), "Students");
-
-  const logRows = [...state.logs].sort((a,b)=>a.date.localeCompare(b.date)).map(l=>({
-    "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
-    "Date": l.date, "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
-    "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
-  XLSX.utils.book_append_sheet(wb, sheetOf(logRows,[26,28,22,12,22,9,9,13]), "Daily Log");
-
-  const dashRows = state.students.map((s,i)=>{
-    const st = studentStats(s.enroll);
-    const comp = completionStats(s);
-    return { "Serial No": i+1, "Enroll No": s.enroll, "Student Name": s.name, "Course Name": s.course,
-      "Week Hours": Number(fmt(st.week)), "Month Hours": Number(fmt(st.month)), "Total Hours": Number(fmt(st.total)),
-      "Required Hours": s.hours, "Remaining Hours": Number(fmt(s.hours - st.total)),
-      "Completion %": comp.pct===null ? "" : Math.round(comp.pct*100)/100 };
-  });
-  XLSX.utils.book_append_sheet(wb, sheetOf(dashRows,[9,26,28,22,11,12,11,14,15,13]), "Dashboard");
-  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Final Test & Interview");
-  await saveWorkbook(wb, `Student_Hours_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`);
-}));
-
-// Check-in / check-out sheet only (optional date range)
-document.getElementById("logExportBtn").addEventListener("click", ()=>runExport(document.getElementById("logExportBtn"), "Check-in/out sheet saved", async ()=>{
-  const from = document.getElementById("logExpFrom").value;
-  const to = document.getElementById("logExpTo").value;
-  let logs = [...state.logs];
-  if(from) logs = logs.filter(l=>l.date >= from);
-  if(to) logs = logs.filter(l=>l.date <= to);
-  if(!logs.length){ throw new Error("No entries in this date range"); }
-  logs.sort((a,b)=>a.date.localeCompare(b.date) || (a.tin||"").localeCompare(b.tin||""));
-
-  const rows = logs.map((l,i)=>({
-    "Serial No": i+1, "Date": l.date, "Enroll No": l.enroll, "Student Name": nameFor(l.enroll), "Course Name": courseFor(l.enroll),
-    "Status": l.status==="leave" ? "Leave" : (l.tout ? "Present" : "Checked In (no checkout)"),
-    "Time In": l.tin||"", "Time Out": l.tout||"", "Hours Worked": Number(fmt(hoursOf(l))) }));
-
-  const byStu = {};
-  logs.forEach(l=>{
-    const r = byStu[l.enroll] || (byStu[l.enroll] = { days:0, leave:0, hours:0 });
-    if(l.status==="leave") r.leave++; else r.days++;
-    r.hours += hoursOf(l);
-  });
-  const summary = Object.keys(byStu).sort().map((en,i)=>({
-    "Serial No": i+1, "Enroll No": en, "Student Name": nameFor(en), "Course Name": courseFor(en),
-    "Days Present": byStu[en].days, "Days Leave": byStu[en].leave, "Total Hours": Number(fmt(byStu[en].hours)) }));
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, sheetOf(rows,[9,12,26,28,22,24,9,9,13]), "Check-In-Out");
-  XLSX.utils.book_append_sheet(wb, sheetOf(summary,[9,26,28,22,13,11,12]), "Summary per Student");
-  const range = (from||to) ? `${from||"start"}_to_${to||"today"}` : new Date().toISOString().slice(0,10);
-  await saveWorkbook(wb, `Check_In_Out_${range}.xlsx`);
-}));
-
-// Final Test & interview sheet only
-document.getElementById("testExportBtn").addEventListener("click", ()=>runExport(document.getElementById("testExportBtn"), "Final Test & interview sheet saved", async ()=>{
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, sheetOf(testRows(),[9,26,28,22,14,12]), "Final Test & Interview");
-  await saveWorkbook(wb, `Module_Test_Interview_${new Date().toISOString().slice(0,10)}.xlsx`);
-}));
-
-// ---------- init ----------
-document.getElementById("logDate").value = new Date().toISOString().slice(0,10);
-initApp();
-</script>
-</body>
-</html>
+function edit(id){
+ const l=leads.find(x=>x.id===id)||{name:'',phone:'',email:'',source:'Meta',temp:'Warm',stage:'New',notes:'',company:'',amount:0,close:'',course:''};
+ const o=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+ $('box').innerHTML=`<h3>${id?'Edit lead':'Add lead'}</h3><div class="f">
+ <div class="full"><label>Name</label><input id="fn" value="${esc(l.name)}"></div>
+ <div><label>Phone / WhatsApp</label><input id="fp" value="${esc(l.phone)}"></div><div><label>Email</label><input id="fe" value="${esc(l.email)}"></div>
+ <div><label>Source</label><select id="fs">${o(Object.keys(SRC),l.source)}</select></div><div><label>Temperature</label><select id="ft">${o(TEMPS,l.temp)}</select></div>
+ <div class="full"><label>Stage</label><select id="fg">${o(STAGES,l.stage)}</select></div>
+ <div class="full"><label>Course</label><select id="fu"><option value="">Not set</option>${l.course&&!COURSES.includes(l.course)?`<option selected>${esc(l.course)}</option>`:''}${(isA()?COURSES:me.courses).map(c=>`<option ${c===l.course?'selected':''}>${c}</option>`).join('')}</select></div><div><label>Company</label><input id="fc" value="${esc(l.company)}"></div><div><label>Deal amount (PKR)</label><input id="fa" type="number" value="${l.amount||0}"></div><div class="full"><label>Expected close date</label><input id="fd" type="date" value="${l.close||''}"></div>${l.extra?`<div class="full"><label>Sheet details</label><div style="color:var(--ink);font-size:14px">${Object.entries(l.extra).map(e=>esc(e[0])+': '+esc(e[1])).join('<br>')}</div></div>`:''}<div class="full"><label>Notes</label><textarea id="fo" rows="3">${esc(l.notes)}</textarea></div></div>
+ <div class="act"><div>${id&&isA()?`<button class="btn del" onclick="del('${id}')">Delete</button>`:''}</div><div><button class="btn ghost" onclick="closeM()">Cancel</button> <button class="btn" onclick="saveLead('${id||''}')">Save lead</button></div></div>`;
+ $('modal').classList.add('show');$('fn').focus()}
+function closeM(){$('modal').classList.remove('show')}
+function saveLead(id){
+ const name=$('fn').value.trim();if(!name){$('fn').style.borderColor='var(--hot)';return}
+ const d={name,phone:$('fp').value,email:$('fe').value,source:$('fs').value,temp:$('ft').value,stage:$('fg').value,notes:$('fo').value,company:$('fc').value,course:$('fu').value||(isA()?'':(me.courses[0]||'')),amount:+$('fa').value||0,close:$('fd').value};
+ if(id)Object.assign(leads.find(x=>x.id===id),d);else leads.unshift({id:'l'+Date.now(),created:Date.now(),...d});plog((id?'Updated ':'Added ')+name);
+ save();closeM();render()}
+function del(id){if(confirm('Delete this lead?')){delLeads([id]);closeM()}}
+function csv(){
+ const h=['name','phone','email','source','course','temp','stage','company','amount','notes'];
+ const t=[h.join(',')].concat(leads.map(l=>h.map(k=>'"'+String(l[k]).replace(/"/g,'""')+'"').join(','))).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='leads.csv';a.click()}
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeM()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
+boot();
+</script></body></html>
